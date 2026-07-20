@@ -1,0 +1,43 @@
+# Python environments and caches
+.venv/
+venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build and packaging output
+build/
+dist/
+*.spec.bak
+*.spec.tmp
+*.spec~
+
+# Local databases and logs
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+logs/
+*.log
+
+# IDE, OS, and Codex-local files
+.idea/
+.vscode/
+.vs/
+*.code-workspace
+.codex/
+.agents/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local UI QA and visualization artifacts
+ui-qa/
+**/ui-qa/
+qa-screenshots/
+ui-qa-*.png
+.visualizations/
+visualizations/
