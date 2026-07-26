@@ -64,7 +64,7 @@ def run() -> int:
     painter.setBrush(QColor("#5d8ff3")); painter.setPen(QColor("#4779df")); painter.drawRoundedRect(3, 3, 26, 26, 8, 8); painter.end()
     icon = QIcon(pixmap); app.setWindowIcon(icon)
     tray = create_tray(app, icon, lambda: (window.show(), window.raise_(), window.requestActivate()),
-                       lambda: (window.show(), window.setProperty("adding", True)), app.quit)
+                       lambda: (window.show(), view_model.beginNewTask()), app.quit)
     if tray:
         app.setQuitOnLastWindowClosed(False); tray.show()
 

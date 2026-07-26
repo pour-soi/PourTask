@@ -1,17 +1,18 @@
 # PourTask
 
-**当前版本：v1.0.0**
+**当前开发版本：v1.1.0**
 
 PourTask 是一款面向 Windows 的精致、本地优先桌面任务管理器。它采用安静的 Pour-family 界面，并将收件箱、今天、月份、已完成、搜索和设置作为同一个本地任务数据库的筛选视图。
 
 ## 当前支持
 
 - 创建、编辑、完成、恢复和删除任务，以及当前会话内的短时撤销
-- 备注、计划日期、截止日期、月份任务、逾期任务和即将到期任务
+- 保存前即可填写备注、计划日期、截止日期和指定月份的完整新建任务表单
+- 美国日期显示与宽容输入、日期日历和指定月份选择器
 - 对任务标题和备注进行不区分大小写的搜索
 - 导出本地备份，以及经过验证的数据替换导入
 - 可选 Windows 系统托盘、开机启动、桌面组件和窗口位置保存
-- 导航、搜索、快速添加和撤销快捷键
+- 导航、搜索、新建、保存、取消和撤销快捷键
 
 PourTask 当前不提供账户、云同步、协作、提醒、重复任务、附件、优先级、标签或 AI 任务规划。
 
@@ -60,11 +61,11 @@ python -m venv .venv
 .\scripts\build_windows.ps1
 ```
 
-构建会生成：
+当前开发构建会生成：
 
-- `release\PourTask-v1.0.0-Windows\`
-- `release\PourTask-v1.0.0-Windows.zip`
-- `release\PourTask-v1.0.0-Windows.zip.sha256`
+- `release\PourTask-v1.1.0-Windows\`
+- `release\PourTask-v1.1.0-Windows.zip`
+- `release\PourTask-v1.1.0-Windows.zip.sha256`
 
 ## 隐私
 

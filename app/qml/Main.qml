@@ -11,12 +11,12 @@ ApplicationWindow {
     minimumWidth: 1060; minimumHeight: 620
     title: "PourTask"
     color: Theme.bg
-    property bool adding: false
 
     function openView(name) {
         appViewModel.setView(name)
         searchField.text = ""
     }
+    function startNewTask() { appViewModel.beginNewTask() }
     function selectedMonthDate() {
         var parts = appViewModel.selectedMonth.split("-")
         return new Date(Number(parts[0]), Number(parts[1]) - 1, 1)
@@ -44,13 +44,6 @@ ApplicationWindow {
     function emptySubtitle() {
         return appViewModel.currentView === "inbox" ? "Capture a new task when something comes to mind." : ""
     }
-    function submitQuickTask() {
-        if (!quickTitle.text.trim()) return
-        appViewModel.addTask(quickTitle.text)
-        quickTitle.text = ""
-        root.adding = false
-    }
-
     onClosing: function(close) {
         if (settingsViewModel.minimizeToTray && trayAvailable) {
             close.accepted = false
@@ -58,14 +51,21 @@ ApplicationWindow {
         }
     }
 
-    Shortcut { sequence: "Ctrl+N"; onActivated: { root.adding = true; quickTitle.forceActiveFocus() } }
+    Shortcut { sequence: "Ctrl+N"; onActivated: root.startNewTask() }
     Shortcut { sequence: "Ctrl+F"; onActivated: searchField.forceActiveFocus() }
     Shortcut { sequence: "Ctrl+Z"; onActivated: appViewModel.undo() }
     Shortcut { sequence: "Ctrl+1"; onActivated: root.openView("inbox") }
     Shortcut { sequence: "Ctrl+2"; onActivated: root.openView("today") }
     Shortcut { sequence: "Ctrl+3"; onActivated: root.openView("month") }
     Shortcut { sequence: "Ctrl+4"; onActivated: root.openView("completed") }
-    Shortcut { sequence: "Escape"; onActivated: { if (appViewModel.detailOpen) appViewModel.closeDetail(); else root.adding = false } }
+    Shortcut {
+        sequence: "Escape"
+        enabled: !detailsPanel.popupOpen
+        onActivated: {
+            if (appViewModel.isCreating) appViewModel.cancelNewTask()
+            else if (appViewModel.detailOpen) appViewModel.closeDetail()
+        }
+    }
 
     RowLayout {
         anchors.fill: parent; spacing: 0
@@ -132,18 +132,11 @@ ApplicationWindow {
                         selectByMouse: true
                         onTextEdited: text.trim() ? appViewModel.setSearch(text) : appViewModel.clearSearch()
                     }
-                    PrimaryButton { text: "New Task"; ToolTip.text: "New Task · Ctrl+N"; onClicked: { root.adding = true; quickTitle.forceActiveFocus() } }
-                }
-            }
-
-            Rectangle {
-                visible: root.adding; Layout.fillWidth: true; Layout.preferredHeight: 64
-                color: Theme.accentDim; border.color: Theme.border
-                RowLayout {
-                    anchors.fill: parent; anchors.leftMargin: Theme.s24; anchors.rightMargin: Theme.s24; spacing: Theme.s8
-                    PourTextField { id: quickTitle; Layout.fillWidth: true; placeholderText: "What needs to be done?"; onAccepted: root.submitQuickTask() }
-                    PrimaryButton { text: "Add Task"; onClicked: root.submitQuickTask() }
-                    PourButton { text: "Cancel"; onClicked: root.adding = false }
+                    PrimaryButton {
+                        objectName: "newTaskButton"
+                        text: "New Task"; ToolTip.text: "New Task · Ctrl+N"
+                        onClicked: root.startNewTask()
+                    }
                 }
             }
 
@@ -199,9 +192,12 @@ ApplicationWindow {
 
                 Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.border }
                 DetailsPanel {
+                    id: detailsPanel
+                    objectName: "detailsPanel"
                     Layout.preferredWidth: root.width >= 1500 ? 390 : (root.width >= 1250 ? 360 : 320)
                     Layout.fillHeight: true
                     task: appViewModel.selectedTask
+                    viewModel: appViewModel
                 }
             }
         }

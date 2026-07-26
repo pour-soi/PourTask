@@ -1,17 +1,18 @@
 # PourTask
 
-**Current version: v1.0.0**
+**Current development version: v1.1.0**
 
 PourTask is a polished, local-first desktop task manager for Windows. It uses a calm Pour-family interface and keeps Inbox, Today, Month, Completed, Search, and Settings as filtered views of one local task database.
 
 ## What PourTask supports
 
 - Task creation, editing, completion, restoration, deletion, and short-session undo
-- Notes, scheduled dates, deadlines, month-only tasks, overdue tasks, and Due Soon
+- A complete New Task editor with Notes, scheduled dates, due dates, and assigned months before saving
+- US date display, flexible US date input, date calendars, and an assigned-month picker
 - Case-insensitive search across task titles and notes
 - Local backup export and validated replacement import
 - Optional Windows system tray, launch at startup, desktop widget, and saved window position
-- Keyboard shortcuts for navigation, search, quick add, and undo
+- Keyboard shortcuts for navigation, search, task creation, saving, canceling, and undo
 
 PourTask does not require an account and does not provide cloud synchronization, collaboration, reminders, recurring tasks, attachments, priorities, tags, or AI planning.
 
@@ -60,11 +61,11 @@ The complete release verification also runs Python compilation, QML loading, QML
 .\scripts\build_windows.ps1
 ```
 
-The build creates:
+The current development build creates:
 
-- `release\PourTask-v1.0.0-Windows\`
-- `release\PourTask-v1.0.0-Windows.zip`
-- `release\PourTask-v1.0.0-Windows.zip.sha256`
+- `release\PourTask-v1.1.0-Windows\`
+- `release\PourTask-v1.1.0-Windows.zip`
+- `release\PourTask-v1.1.0-Windows.zip.sha256`
 
 ## Privacy
 
