@@ -19,7 +19,15 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 exe = EXE(
-    pyz, a.scripts, a.binaries, a.datas, [],
+    pyz, a.scripts, [],
     name="PourTask", debug=False, bootloader_ignore_signals=False,
-    strip=False, upx=True, console=False,
+    strip=False, upx=True, console=False, exclude_binaries=True,
+)
+collect = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    name="PourTask",
 )

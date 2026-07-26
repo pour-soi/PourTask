@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "PourTask"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A calm, local-first Windows task manager"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -20,3 +20,6 @@ addopts = "-q"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "app.version.__version__"}

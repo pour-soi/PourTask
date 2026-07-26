@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
+from app import __version__
 from app.database import Database, TaskRepository
 from app.logging_config import configure_logging
 from app.paths import AppPaths
@@ -22,7 +23,7 @@ from app.platform.tray import create_tray
 
 def run() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("PourTask"); app.setOrganizationName("Pour")
+    app.setApplicationName("PourTask"); app.setApplicationVersion(__version__); app.setOrganizationName("Pour")
     paths = AppPaths.default(); paths.ensure(); configure_logging(paths.logs)
     settings = Settings(paths.settings)
     try:
@@ -38,6 +39,7 @@ def run() -> int:
     engine.rootContext().setContextProperty("appViewModel", view_model)
     engine.rootContext().setContextProperty("settingsViewModel", settings_view_model)
     engine.rootContext().setContextProperty("strings", STRINGS)
+    engine.rootContext().setContextProperty("appVersion", __version__)
     engine.rootContext().setContextProperty("launchHidden", startup_launch and tray_available)
     engine.rootContext().setContextProperty("trayAvailable", tray_available)
     qml = Path(__file__).parent / "qml" / "Main.qml"

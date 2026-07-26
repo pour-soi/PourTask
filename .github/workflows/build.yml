@@ -1,0 +1,95 @@
+name: Build Windows
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Create virtual environment
+        shell: pwsh
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+      - name: Read application version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (.\.venv\Scripts\python.exe -c "from app.version import __version__; print(__version__)").Trim()
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Run complete pytest suite
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: .\.venv\Scripts\python.exe -m pytest
+
+      - name: Compile Python sources
+        shell: pwsh
+        run: .\.venv\Scripts\python.exe -m compileall -q main.py app tests
+
+      - name: Load QML runtime
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: .\.venv\Scripts\python.exe -m pytest tests\test_qml_smoke.py -q
+
+      - name: Lint QML
+        shell: pwsh
+        run: |
+          $qmlFiles = @(
+            "app\qml\Main.qml",
+            "app\qml\DesktopWidget.qml",
+            "app\qml\theme\Theme.qml"
+          ) + (Get-ChildItem -LiteralPath "app\qml\components" -Filter "*.qml" | ForEach-Object FullName)
+          & .\.venv\Scripts\pyside6-qmllint.exe -I app\qml $qmlFiles
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Build portable Windows package
+        shell: pwsh
+        run: .\scripts\build_windows.ps1
+
+      - name: Verify release checksum
+        shell: pwsh
+        run: |
+          $name = "PourTask-v${{ steps.version.outputs.version }}-Windows.zip"
+          $zip = Join-Path "release" $name
+          $checksum = Get-Content -LiteralPath "$zip.sha256" -Raw
+          $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($checksum.Trim() -ne "$actual  $name") {
+            throw "Release checksum does not match the Windows ZIP."
+          }
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PourTask-v${{ steps.version.outputs.version }}-Windows
+          path: |
+            release/PourTask-v${{ steps.version.outputs.version }}-Windows.zip
+            release/PourTask-v${{ steps.version.outputs.version }}-Windows.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
