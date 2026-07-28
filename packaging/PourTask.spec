@@ -52,6 +52,7 @@ a = Analysis(
     datas=[
         (str(project / "app" / "qml"), "app/qml"),
         (str(project / "app" / "database" / "schema.sql"), "app/database"),
+        (str(project / "assets" / "icons"), "assets/icons"),
         (str(project / "VERSION"), "."),
     ],
     hiddenimports=[],
@@ -67,6 +68,7 @@ exe = EXE(
     name="PourTask", debug=False, bootloader_ignore_signals=False,
     strip=False, upx=True, console=False, exclude_binaries=True,
     version=str(version_info),
+    icon=str(project / "assets" / "icons" / "PourTask.ico"),
 )
 collect = COLLECT(
     exe,

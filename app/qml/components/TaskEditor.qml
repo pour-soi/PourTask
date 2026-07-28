@@ -85,7 +85,7 @@ Item {
             Text { text: "NOTES"; color: Theme.dim; font.pixelSize: Theme.labelText; font.weight: Font.DemiBold }
             PourTextArea {
                 id: notesField; objectName: "taskNotesField"
-                Layout.fillWidth: true; Layout.preferredHeight: Math.max(110, editor.height * 0.22)
+                Layout.fillWidth: true; Layout.preferredHeight: Math.max(132, editor.height * 0.24)
                 readOnly: editor.completed
                 placeholderText: "Add notes, URLs, Chinese or English text"
             }
@@ -114,6 +114,7 @@ Item {
                 onManuallyEdited: editor.assignedMonthManual = true
             }
             RowLayout {
+                objectName: "taskActionRow"
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.s8
                 spacing: Theme.s8

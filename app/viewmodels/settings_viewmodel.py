@@ -62,6 +62,8 @@ class SettingsViewModel(QObject):
     def widgetAlwaysOnTop(self): return bool(self.settings.values["widget_always_on_top"])
     @Property(bool, notify=changed)
     def widgetLockPosition(self): return bool(self.settings.values["widget_lock_position"])
+    @Property(bool, notify=changed)
+    def widgetExpandOnHover(self): return bool(self.settings.values["widget_expand_on_hover"])
 
     @Slot(bool)
     def setLaunchAtStartup(self, enabled):
@@ -128,4 +130,9 @@ class SettingsViewModel(QObject):
     @Slot(bool)
     def setWidgetLockPosition(self, locked):
         self.settings.values["widget_lock_position"] = locked
+        self.settings.save(); self.changed.emit()
+
+    @Slot(bool)
+    def setWidgetExpandOnHover(self, enabled):
+        self.settings.values["widget_expand_on_hover"] = enabled
         self.settings.save(); self.changed.emit()

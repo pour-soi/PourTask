@@ -17,6 +17,7 @@ DEFAULTS = {
     "widget_expanded_size": {"width": 260, "height": 160},
     "widget_always_on_top": False,
     "widget_lock_position": False,
+    "widget_expand_on_hover": False,
 }
 
 

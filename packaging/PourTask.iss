@@ -28,10 +28,12 @@ OutputBaseFilename=PourTask-v{#AppVersion}-Windows-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\icons\PourTask.ico
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=PourTask {#AppVersion}
+UninstallDisplayIcon={app}\PourTask.exe
 VersionInfoVersion={#NumericVersion}
 VersionInfoCompany=Pour
 VersionInfoDescription=PourTask Windows Installer
@@ -46,8 +48,8 @@ Source: "installed.marker"; DestDir: "{app}"; DestName: ".pourtask-installed"; A
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "PourTask"; Flags: uninsdeletevalue dontcreatekey
 
 [Icons]
-Name: "{autoprograms}\PourTask"; Filename: "{app}\PourTask.exe"
-Name: "{autodesktop}\PourTask"; Filename: "{app}\PourTask.exe"; Tasks: desktopicon
+Name: "{autoprograms}\PourTask"; Filename: "{app}\PourTask.exe"; IconFilename: "{app}\PourTask.exe"
+Name: "{autodesktop}\PourTask"; Filename: "{app}\PourTask.exe"; IconFilename: "{app}\PourTask.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"

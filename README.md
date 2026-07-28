@@ -1,6 +1,6 @@
 # PourTask
 
-**Current validation version: v1.2.0-beta.2**
+**Current validation version: v1.2.0-beta.3**
 
 PourTask is a polished, local-first desktop task manager for Windows. It uses a calm Pour-family interface and keeps Inbox, Today, Month, Completed, Search, and Settings as filtered views of one local task database.
 
@@ -18,7 +18,7 @@ PourTask does not require an account and does not provide cloud synchronization,
 
 ## Run the Windows release
 
-1. Download `PourTask-v1.2.0-beta.2-Windows-Setup.exe` or `PourTask-v1.2.0-beta.2-Windows.zip` from the validation pre-release.
+1. Download `PourTask-v1.2.0-beta.3-Windows-Setup.exe` or `PourTask-v1.2.0-beta.3-Windows.zip` from the validation pre-release.
 2. Run the installer, or extract the complete portable ZIP to a writable folder.
 3. For the portable build, run `PourTask.exe` from the extracted folder.
 
@@ -63,11 +63,11 @@ The complete release verification also runs Python compilation, QML loading, QML
 
 The current development build creates:
 
-- `release\PourTask-v1.2.0-beta.2-Windows\`
-- `release\PourTask-v1.2.0-beta.2-Windows.zip`
-- `release\PourTask-v1.2.0-beta.2-Windows.zip.sha256`
-- `release\PourTask-v1.2.0-beta.2-Windows-Setup.exe`
-- `release\PourTask-v1.2.0-beta.2-Windows-Setup.exe.sha256`
+- `release\PourTask-v1.2.0-beta.3-Windows\`
+- `release\PourTask-v1.2.0-beta.3-Windows.zip`
+- `release\PourTask-v1.2.0-beta.3-Windows.zip.sha256`
+- `release\PourTask-v1.2.0-beta.3-Windows-Setup.exe`
+- `release\PourTask-v1.2.0-beta.3-Windows-Setup.exe.sha256`
 
 ## Privacy
 

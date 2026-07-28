@@ -208,14 +208,15 @@ ApplicationWindow {
                         Layout.preferredWidth: 36
                         Layout.preferredHeight: 36
                         radius: Theme.rControl
-                        color: Theme.accentDim
+                        color: "transparent"
                         border.color: Theme.border
-                        PourIcon {
-                            anchors.centerIn: parent
-                            width: 20
-                            height: 20
-                            name: "completed"
-                            iconColor: Theme.accent
+                        Image {
+                            objectName: "applicationBrandIcon"
+                            anchors.fill: parent
+                            source: appIconUrl
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            mipmap: true
                         }
                     }
                     ColumnLayout {
@@ -325,7 +326,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.minimumWidth: header.narrow ? 120 : 180
                         Layout.preferredWidth: 300
-                        Layout.maximumWidth: 360
+                        Layout.maximumWidth: 320
                         selectByMouse: true
                         onTextEdited: text.trim()
                                       ? appViewModel.setSearch(text)
@@ -424,6 +425,12 @@ ApplicationWindow {
                                 checked: settingsViewModel.widgetEnabled
                                 onToggled: settingsViewModel.setWidgetEnabled(checked)
                             }
+                            CheckBox {
+                                objectName: "widgetHoverExpandToggle"
+                                text: "Expand widget on hover"
+                                checked: settingsViewModel.widgetExpandOnHover
+                                onToggled: settingsViewModel.setWidgetExpandOnHover(checked)
+                            }
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 1
@@ -455,12 +462,22 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                             }
                             Item { Layout.fillHeight: true }
-                            Text {
-                                objectName: "aboutVersionText"
-                                text: "PourTask " + appVersion
-                                color: Theme.dim
-                                font.pixelSize: Theme.bodyText
-                                Accessible.name: "PourTask version " + appVersion
+                            RowLayout {
+                                spacing: Theme.s8
+                                Image {
+                                    source: appIconUrl
+                                    Layout.preferredWidth: 24
+                                    Layout.preferredHeight: 24
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                }
+                                Text {
+                                    objectName: "aboutVersionText"
+                                    text: "PourTask " + appVersion
+                                    color: Theme.dim
+                                    font.pixelSize: Theme.bodyText
+                                    Accessible.name: "PourTask version " + appVersion
+                                }
                             }
                         }
 

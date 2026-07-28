@@ -1,6 +1,6 @@
 # PourTask
 
-**当前验证版本：v1.2.0-beta.2**
+**当前验证版本：v1.2.0-beta.3**
 
 PourTask 是一款面向 Windows 的精致、本地优先桌面任务管理器。它采用安静的 Pour-family 界面，并将收件箱、今天、月份、已完成、搜索和设置作为同一个本地任务数据库的筛选视图。
 
@@ -18,7 +18,7 @@ PourTask 当前不提供账户、云同步、协作、提醒、重复任务、�
 
 ## 运行 Windows 发布版本
 
-1. 从验证版 GitHub Pre-release 下载 `PourTask-v1.2.0-beta.2-Windows-Setup.exe` 或 `PourTask-v1.2.0-beta.2-Windows.zip`。
+1. 从验证版 GitHub Pre-release 下载 `PourTask-v1.2.0-beta.3-Windows-Setup.exe` 或 `PourTask-v1.2.0-beta.3-Windows.zip`。
 2. 运行安装程序，或将完整便携 ZIP 解压到一个可写文件夹。
 3. 使用便携版本时，在解压后的文件夹中运行 `PourTask.exe`。
 
@@ -63,11 +63,11 @@ python -m venv .venv
 
 当前开发构建会生成：
 
-- `release\PourTask-v1.2.0-beta.2-Windows\`
-- `release\PourTask-v1.2.0-beta.2-Windows.zip`
-- `release\PourTask-v1.2.0-beta.2-Windows.zip.sha256`
-- `release\PourTask-v1.2.0-beta.2-Windows-Setup.exe`
-- `release\PourTask-v1.2.0-beta.2-Windows-Setup.exe.sha256`
+- `release\PourTask-v1.2.0-beta.3-Windows\`
+- `release\PourTask-v1.2.0-beta.3-Windows.zip`
+- `release\PourTask-v1.2.0-beta.3-Windows.zip.sha256`
+- `release\PourTask-v1.2.0-beta.3-Windows-Setup.exe`
+- `release\PourTask-v1.2.0-beta.3-Windows-Setup.exe.sha256`
 
 ## 隐私
 

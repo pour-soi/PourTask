@@ -18,10 +18,11 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             Text {
+                objectName: "taskDetailsHeading"
                 text: panel.creating ? "New Task" : "Task Details"
                 color: Theme.text
                 font.pixelSize: 18
-                font.weight: Font.DemiBold
+                font.weight: Font.Bold
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -32,7 +33,13 @@ Rectangle {
                 onClicked: panel.collapseRequested()
             }
         }
-        Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
+        Rectangle {
+            objectName: "taskDetailsDivider"
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            Layout.bottomMargin: Theme.s4
+            color: Theme.borderStrong
+        }
         Item {
             visible: !panel.hasTask && !panel.creating; Layout.fillWidth: true; Layout.fillHeight: true
             Text { anchors.centerIn: parent; text: "Select a task to view details."; color: Theme.secondary; font.pixelSize: Theme.bodyText }

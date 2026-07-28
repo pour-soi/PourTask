@@ -36,7 +36,7 @@ QtObject {
     readonly property int rLarge: 16
     readonly property int controlHeight: 38
     readonly property int navHeight: 44
-    readonly property int taskRowHeight: 72
+    readonly property int taskRowHeight: 62
     readonly property int sidebarWidth: 208
     readonly property int detailsWidth: 360
     readonly property int pageTitle: 28

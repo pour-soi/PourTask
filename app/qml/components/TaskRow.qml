@@ -27,7 +27,10 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: row.compact ? Theme.s8 : Theme.s12
+        anchors.leftMargin: row.compact ? Theme.s8 : Theme.s12
+        anchors.rightMargin: row.compact ? Theme.s8 : Theme.s12
+        anchors.topMargin: row.compact ? Theme.s4 : Theme.s8
+        anchors.bottomMargin: row.compact ? Theme.s4 : Theme.s8
         spacing: row.compact ? Theme.s8 : Theme.s12
         TaskCheckBox {
             checked: row.completed
@@ -36,7 +39,7 @@ Rectangle {
         }
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: row.compact ? 0 : Theme.s8
+            spacing: row.compact ? 0 : Theme.s4
             Text {
                 text: row.title; color: Theme.text; font.pixelSize: Theme.taskTitle; font.weight: Font.DemiBold
                 font.strikeout: row.completed; elide: Text.ElideRight; Layout.fillWidth: true

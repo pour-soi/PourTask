@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import ctypes
 import logging
 import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap, QWindow
+from PySide6.QtGui import QGuiApplication, QIcon, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
@@ -36,9 +37,25 @@ def _screen_work_areas():
     ]
 
 
+def _resource_path(relative: str) -> Path:
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+    return base / relative
+
+
+def _set_windows_app_id() -> None:
+    if sys.platform == "win32":
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Pour.PourTask")
+
+
 def run() -> int:
+    _set_windows_app_id()
     app = QApplication(sys.argv)
     app.setApplicationName("PourTask"); app.setApplicationVersion(__version__); app.setOrganizationName("Pour")
+    icon_path = _resource_path("assets/icons/PourTask.ico")
+    icon = QIcon(str(icon_path))
+    if icon.isNull():
+        logging.error("Application icon could not be loaded from %s", icon_path)
+    app.setWindowIcon(icon)
     startup_launch = "--startup" in sys.argv
     instance_guard = SingleInstanceGuard()
     if not instance_guard.acquire(startup_launch):
@@ -60,6 +77,9 @@ def run() -> int:
     engine.rootContext().setContextProperty("settingsViewModel", settings_view_model)
     engine.rootContext().setContextProperty("strings", STRINGS)
     engine.rootContext().setContextProperty("appVersion", __version__)
+    engine.rootContext().setContextProperty(
+        "appIconUrl", QUrl.fromLocalFile(str(_resource_path("assets/icons/PourTask.svg")))
+    )
     engine.rootContext().setContextProperty("launchHidden", startup_launch and tray_available)
     engine.rootContext().setContextProperty("trayAvailable", tray_available)
     qml = Path(__file__).parent / "qml" / "Main.qml"
@@ -179,10 +199,6 @@ def run() -> int:
     app.screenAdded.connect(lambda screen: (watch_screen(screen), QTimer.singleShot(0, recover_visible_windows)))
     app.screenRemoved.connect(lambda _screen: QTimer.singleShot(0, recover_visible_windows))
 
-    pixmap = QPixmap(32, 32); pixmap.fill(QColor("transparent"))
-    painter = QPainter(pixmap); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(QColor("#5d8ff3")); painter.setPen(QColor("#4779df")); painter.drawRoundedRect(3, 3, 26, 26, 8, 8); painter.end()
-    icon = QIcon(pixmap); app.setWindowIcon(icon)
     def open_window():
         if window_state["maximized"]:
             window.showMaximized()

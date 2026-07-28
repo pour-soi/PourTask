@@ -39,6 +39,13 @@ Item {
             } else if (icon.name === "left" || icon.name === "right") {
                 var direction = icon.name === "left" ? 1 : -1
                 c.beginPath(); c.moveTo(w*(.5+.16*direction),h*.24); c.lineTo(w*(.5-.12*direction),h*.5); c.lineTo(w*(.5+.16*direction),h*.76); c.stroke()
+            } else if (icon.name === "up" || icon.name === "down") {
+                var vertical = icon.name === "up" ? 1 : -1
+                c.beginPath(); c.moveTo(w*.24,h*(.5+.13*vertical)); c.lineTo(w*.5,h*(.5-.13*vertical)); c.lineTo(w*.76,h*(.5+.13*vertical)); c.stroke()
+            } else if (icon.name === "open") {
+                c.strokeRect(w*.18,h*.34,w*.48,h*.48)
+                c.beginPath(); c.moveTo(w*.45,h*.18); c.lineTo(w*.82,h*.18); c.lineTo(w*.82,h*.55)
+                c.moveTo(w*.82,h*.18); c.lineTo(w*.43,h*.57); c.stroke()
             }
         }
         Connections { target: icon; function onIconColorChanged() { canvas.requestPaint() } function onNameChanged() { canvas.requestPaint() } }

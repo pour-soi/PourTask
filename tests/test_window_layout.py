@@ -1,7 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QUrl
+from PySide6.QtCore import QMetaObject, QObject, QPoint, QUrl
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickItem
 from PySide6.QtTest import QTest
@@ -29,6 +29,10 @@ def _load_main_and_widget(repository, tmp_path: Path):
     context.setContextProperty("settingsViewModel", settings_view_model)
     context.setContextProperty("strings", STRINGS)
     context.setContextProperty("appVersion", __version__)
+    context.setContextProperty(
+        "appIconUrl",
+        QUrl.fromLocalFile(str(Path(__file__).parents[1] / "assets" / "icons" / "PourTask.svg")),
+    )
     context.setContextProperty("launchHidden", False)
     context.setContextProperty("trayAvailable", False)
 
@@ -97,7 +101,7 @@ def test_main_window_resizes_collapses_and_hides_settings_search(repository, tmp
     search = window.findChild(QObject, "taskSearchField")
     assert not search.property("visible")
     about_version = window.findChild(QObject, "aboutVersionText")
-    assert about_version.property("text") == "PourTask 1.2.0-beta.2"
+    assert about_version.property("text") == "PourTask 1.2.0-beta.3"
 
     widget.close()
     window.close()
@@ -152,6 +156,7 @@ def test_widget_defaults_compact_restore_and_quick_add(repository, tmp_path):
     assert widget.findChild(QObject, "widgetBottomResizeHandle")
     assert not settings.widgetAlwaysOnTop
     assert not settings.widgetLockPosition
+    assert not settings.widgetExpandOnHover
 
     widget.setProperty("width", 310)
     widget.setProperty("height", 230)
@@ -187,6 +192,12 @@ def test_widget_defaults_compact_restore_and_quick_add(repository, tmp_path):
     title = rows[0].findChild(QObject, "widgetTaskTitle")
     assert title.property("text") == "Widget task"
     assert rows[0].property("height") == 30
+    assert rows[0].property("width") > 0
+    assert rows[0].property("visible")
+    assert rows[0].property("opacity") == 1
+    assert task_list.property("width") > 0
+    assert task_list.property("height") >= 30
+    assert task_list.property("contentHeight") >= 30
     rows[0].toggled.emit(True)
     application.processEvents()
     assert task_list.property("count") == 0
@@ -208,6 +219,7 @@ def test_layout_settings_round_trip(tmp_path):
     view_model.setWidgetCompact(True)
     view_model.setWidgetAlwaysOnTop(True)
     view_model.setWidgetLockPosition(True)
+    view_model.setWidgetExpandOnHover(True)
 
     restored = Settings(tmp_path / "settings.json")
     assert restored.values["main_splitters"] == {
@@ -219,6 +231,7 @@ def test_layout_settings_round_trip(tmp_path):
     assert restored.values["widget_compact"] is True
     assert restored.values["widget_always_on_top"] is True
     assert restored.values["widget_lock_position"] is True
+    assert restored.values["widget_expand_on_hover"] is True
 
 
 def test_editor_auto_collapse_preserves_unsaved_content(repository, tmp_path):
@@ -281,6 +294,149 @@ def test_widget_empty_multiple_and_long_titles_render_compactly(repository, tmp_
     title_items = _visual_items_with_name(task_list, "widgetTaskTitle")
     assert {item.property("text") for item in title_items} == set(titles)
     assert all(item.property("maximumLineCount") == 1 for item in title_items)
+    long_item = next(item for item in title_items if item.property("text") == titles[-1])
+    assert long_item.property("truncated")
+
+    widget.close()
+    window.close()
+    application.processEvents()
+    del engine
+
+
+def test_widget_default_size_paints_real_task_rows(repository, tmp_path):
+    application, engine, view_model, settings, window, widget = _load_main_and_widget(
+        repository, tmp_path
+    )
+    for title in ("Task A", "Task B"):
+        assert view_model.addTodayTask(title)
+    widget.show()
+    QTest.qWait(100)
+    application.processEvents()
+
+    task_list = widget.findChild(QObject, "widgetTaskList")
+    rows = _visual_items_with_name(task_list, "widgetTaskRow")
+    assert widget.property("height") == 160
+    assert task_list.property("count") == 2
+    assert task_list.property("height") >= 61
+    assert task_list.property("contentHeight") >= 61
+    assert len(rows) == 2
+    assert all(row.property("width") == task_list.property("width") for row in rows)
+    assert all(row.property("height") == 30 for row in rows)
+    assert all(row.property("visible") and row.property("opacity") == 1 for row in rows)
+    assert all(row.property("z") > 0 for row in rows)
+
+    painted = widget.grabWindow()
+    assert not painted.isNull()
+    list_x = round(task_list.property("x"))
+    list_y = round(task_list.property("y"))
+    list_width = round(task_list.property("width"))
+    list_height = round(task_list.property("height"))
+    dark_pixels = 0
+    for y in range(list_y, min(painted.height(), list_y + list_height)):
+        for x in range(list_x, min(painted.width(), list_x + list_width)):
+            color = painted.pixelColor(x, y)
+            if color.alpha() > 0 and color.lightness() < 150:
+                dark_pixels += 1
+    assert dark_pixels > 50, "Task-list viewport was painted without visible row content"
+
+    widget.close()
+    window.close()
+    application.processEvents()
+    del engine
+
+
+def test_widget_hover_expansion_is_delayed_temporary_and_guarded(repository, tmp_path):
+    application, engine, view_model, settings, window, widget = _load_main_and_widget(
+        repository, tmp_path
+    )
+    settings.setWidgetExpandedSize(290, 190)
+    settings.setWidgetCompact(True)
+    settings.setWidgetExpandOnHover(True)
+    widget.setProperty("height", 70)
+
+    expand_timer = widget.findChild(QObject, "widgetHoverExpandTimer")
+    collapse_timer = widget.findChild(QObject, "widgetHoverCollapseTimer")
+    assert expand_timer.property("interval") == 375
+    assert collapse_timer.property("interval") == 650
+
+    widget.hoverEntered()
+    QTest.qWait(150)
+    assert not widget.property("hoverExpanded")
+    widget.hoverLeft()
+    QTest.qWait(300)
+    assert not widget.property("hoverExpanded")
+
+    widget.hoverEntered()
+    QTest.qWait(425)
+    assert widget.property("hoverExpanded")
+    assert settings.widgetCompact
+    assert widget.property("width") == 290
+    assert widget.property("height") == 190
+
+    menu = widget.findChild(QObject, "widgetContextMenu")
+    widget.setProperty("x", 500)
+    widget.setProperty("y", 500)
+    widget.show()
+    assert QMetaObject.invokeMethod(menu, "open")
+    application.processEvents()
+    assert menu.property("visible")
+    widget.hoverLeft()
+    QTest.qWait(700)
+    assert widget.property("hoverExpanded")
+    assert QMetaObject.invokeMethod(menu, "close")
+    application.processEvents()
+    widget.setHoverExpanded(False)
+
+    widget.hoverEntered()
+    QTest.qWait(425)
+    assert widget.property("hoverExpanded")
+    quick_add = widget.findChild(QObject, "widgetQuickAdd")
+    quick_add.forceActiveFocus()
+    widget.hoverLeft()
+    QTest.qWait(700)
+    assert widget.property("hoverExpanded")
+    quick_add.setProperty("focus", False)
+    window.requestActivate()
+    QTest.mouseMove(window, QPoint(600, 400))
+    widget.hoverLeft()
+    QTest.qWait(700)
+    assert not widget.property("hoverExpanded")
+    assert settings.widgetCompact
+    assert settings.widgetExpandedWidth == 290
+    assert settings.widgetExpandedHeight == 190
+    widget.setCompact(False)
+    widget.hoverLeft()
+    QTest.qWait(700)
+    assert not settings.widgetCompact
+    assert not widget.property("compact")
+    assert widget.property("height") == 190
+
+    widget.close()
+    window.close()
+    application.processEvents()
+    del engine
+
+
+def test_main_ui_refinement_dimensions(repository, tmp_path):
+    application, engine, view_model, settings, window, widget = _load_main_and_widget(
+        repository, tmp_path
+    )
+    window.findChild(QObject, "newTaskButton").clicked.emit()
+    application.processEvents()
+
+    notes = window.findChild(QObject, "taskNotesField")
+    save = window.findChild(QObject, "saveTaskButton")
+    delete = window.findChild(QObject, "deleteTaskButton")
+    action_row = window.findChild(QObject, "taskActionRow")
+    search = window.findChild(QObject, "taskSearchField")
+    nav = _visual_items_with_name(window.contentItem(), "applicationBrandIcon")
+    assert notes.property("height") >= 120
+    assert action_row is not None
+    assert save.parent() is delete.parent()
+    assert search.property("width") <= 320
+    assert nav
+    assert window.findChild(QObject, "taskDetailsHeading").property("font").weight() > 600
+    assert window.findChild(QObject, "taskDetailsDivider")
 
     widget.close()
     window.close()

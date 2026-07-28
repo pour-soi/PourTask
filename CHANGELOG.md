@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.2.0-beta.3 - 2026-07-28
+
+Third external validation build focused on reliable desktop-widget rendering, optional hover expansion, denser interface details, and complete PourTask icon integration.
+
+- Fixed the desktop widget blank-body rendering issue so actual Today task rows display at the default installed widget size.
+- Anchored the widget header, task list, and Quick Add regions with a 26-pixel header, 30-pixel task rows, and a 30-pixel Quick Add area.
+- Added optional compact-widget hover expansion with a 375 ms expand delay and a 650 ms collapse delay.
+- Prevented hover collapse during Quick Add focus, context-menu use, control interaction, task completion, native movement, and resizing.
+- Kept temporary hover expansion from overwriting the saved Compact state.
+- Replaced wordy widget header actions with compact, accessible icon-only controls.
+- Increased the Notes editor height and refined Save and Delete onto a clearer shared action row.
+- Shortened the Search field, compacted main-window task rows, enlarged sidebar icons, and strengthened the Task Details hierarchy.
+- Added a new branded PourTask application icon with consistent runtime, taskbar, Alt+Tab, tray, PyInstaller, installer, shortcut, and Add/Remove Programs integration.
+- Preserved the Beta 2 Windows startup feature, including HKCU registration, tray-minimized startup, single-instance handling, portable-build restrictions, and uninstall cleanup.
+
 ## v1.2.0-beta.2 - 2026-07-27
 
 External validation build focused on responsive window layout, practical Today-widget use, and user-controlled Windows startup.

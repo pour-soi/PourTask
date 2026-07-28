@@ -21,6 +21,10 @@ def test_main_qml_loads(repository, tmp_path: Path):
     engine.rootContext().setContextProperty("settingsViewModel", SettingsViewModel(Settings(tmp_path / "settings.json"), tmp_path / "PourTask.exe"))
     engine.rootContext().setContextProperty("strings", STRINGS)
     engine.rootContext().setContextProperty("appVersion", __version__)
+    engine.rootContext().setContextProperty(
+        "appIconUrl",
+        QUrl.fromLocalFile(str(Path(__file__).parents[1] / "assets" / "icons" / "PourTask.svg")),
+    )
     engine.rootContext().setContextProperty("launchHidden", False)
     engine.rootContext().setContextProperty("trayAvailable", False)
     qml = Path(__file__).parents[1] / "app" / "qml" / "Main.qml"
@@ -38,6 +42,10 @@ def test_new_task_editor_and_pickers_are_interactive(repository, tmp_path: Path)
     engine.rootContext().setContextProperty("settingsViewModel", SettingsViewModel(Settings(tmp_path / "settings.json"), tmp_path / "PourTask.exe"))
     engine.rootContext().setContextProperty("strings", STRINGS)
     engine.rootContext().setContextProperty("appVersion", __version__)
+    engine.rootContext().setContextProperty(
+        "appIconUrl",
+        QUrl.fromLocalFile(str(Path(__file__).parents[1] / "assets" / "icons" / "PourTask.svg")),
+    )
     engine.rootContext().setContextProperty("launchHidden", False)
     engine.rootContext().setContextProperty("trayAvailable", False)
     qml = Path(__file__).parents[1] / "app" / "qml" / "Main.qml"

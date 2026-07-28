@@ -17,7 +17,7 @@ AbstractButton {
         Item { Layout.preferredWidth: Theme.s4; Layout.fillHeight: true
             Rectangle { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; width: 3; height: 22; radius: 2; color: Theme.accent; visible: control.selected }
         }
-        PourIcon { name: control.iconName; iconColor: control.selected ? Theme.accent : Theme.secondary; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
+        PourIcon { name: control.iconName; iconColor: control.selected ? Theme.accent : Theme.secondary; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
         Text { text: control.text; color: control.selected ? Theme.text : Theme.secondary; font.pixelSize: Theme.sidebarText; font.weight: control.selected ? Font.DemiBold : Font.Normal; Layout.fillWidth: true }
     }
     background: Rectangle {
