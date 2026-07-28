@@ -7,12 +7,11 @@ import "components"
 ApplicationWindow {
     id: widget
     objectName: "desktopWidget"
-    width: settingsViewModel.widgetCompact
-           ? 260 : settingsViewModel.widgetExpandedWidth
+    width: settingsViewModel.widgetExpandedWidth
     height: settingsViewModel.widgetCompact
-            ? 80 : settingsViewModel.widgetExpandedHeight
+            ? 70 : settingsViewModel.widgetExpandedHeight
     minimumWidth: 220
-    minimumHeight: settingsViewModel.widgetCompact ? 70 : 130
+    minimumHeight: settingsViewModel.widgetCompact ? 60 : 115
     visible: false
     title: "PourTask Today"
     flags: Qt.Tool | Qt.FramelessWindowHint
@@ -33,7 +32,7 @@ ApplicationWindow {
         if (value) {
             settingsViewModel.setWidgetExpandedSize(width, height)
             settingsViewModel.setWidgetCompact(true)
-            height = 80
+            height = 70
         } else {
             settingsViewModel.setWidgetCompact(false)
             width = settingsViewModel.widgetExpandedWidth
@@ -83,12 +82,12 @@ ApplicationWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: Theme.s8
-            spacing: Theme.s8
+            anchors.margins: 6
+            spacing: Theme.s4
 
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 34
+                Layout.preferredHeight: 28
                 spacing: Theme.s4
 
                 Item {
@@ -119,16 +118,43 @@ ApplicationWindow {
                 }
 
                 PourButton {
-                    visible: !widget.compact
                     text: "Open"
+                    Layout.preferredHeight: 28
                     ToolTip.text: "Open PourTask"
                     onClicked: widget.openMain()
                 }
                 PourButton {
                     objectName: "widgetCompactButton"
-                    text: widget.compact ? "⌄" : "⌃"
+                    text: widget.compact ? "Expand" : "Collapse"
+                    Layout.preferredHeight: 28
                     ToolTip.text: widget.compact ? "Expand" : "Compact"
                     onClicked: widget.setCompact(!widget.compact)
+                }
+            }
+
+            ListView {
+                id: taskList
+                objectName: "widgetTaskList"
+                visible: !widget.compact
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                model: appViewModel.todayTasks
+                spacing: 2
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                delegate: WidgetTaskRow {
+                    onToggled: value => appViewModel.setCompleted(taskId, value)
+                    onOpened: widget.openTask(taskId)
+                }
+                Text {
+                    objectName: "widgetEmptyState"
+                    anchors.top: parent.top
+                    anchors.topMargin: Theme.s8
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: taskList.count === 0
+                    text: "No tasks for today"
+                    color: Theme.secondary
+                    font.pixelSize: Theme.bodyText
                 }
             }
 
@@ -137,6 +163,7 @@ ApplicationWindow {
                 objectName: "widgetQuickAdd"
                 visible: !widget.compact
                 Layout.fillWidth: true
+                Layout.preferredHeight: 32
                 placeholderText: strings.quick_add
                 Accessible.name: "Add a task for today"
                 onTextEdited: widget.quickAddError = ""
@@ -157,30 +184,6 @@ ApplicationWindow {
                 font.pixelSize: Theme.metadata
                 Layout.fillWidth: true
                 elide: Text.ElideRight
-            }
-
-            ListView {
-                id: taskList
-                objectName: "widgetTaskList"
-                visible: !widget.compact
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                model: appViewModel.todayTasks
-                spacing: Theme.s4
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: TaskRow {
-                    compact: true
-                    onToggled: value => appViewModel.setCompleted(taskId, value)
-                    onOpened: widget.openTask(taskId)
-                }
-                Text {
-                    anchors.centerIn: parent
-                    visible: taskList.count === 0
-                    text: "No tasks today"
-                    color: Theme.secondary
-                    font.pixelSize: Theme.bodyText
-                }
             }
         }
     }

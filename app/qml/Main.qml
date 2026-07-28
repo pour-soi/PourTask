@@ -8,17 +8,32 @@ ApplicationWindow {
     id: root
     objectName: "mainWindow"
     visible: !launchHidden
-    width: 1300
-    height: 780
-    minimumWidth: 900
-    minimumHeight: 620
+    width: 960
+    height: 700
+    minimumWidth: 720
+    minimumHeight: 520
     title: "PourTask"
     color: Theme.bg
 
     property bool editorCollapsed: settingsViewModel.editorCollapsed
+    property real lastSidebarWidth: settingsViewModel.mainSidebarWidth > 0
+                                    ? settingsViewModel.mainSidebarWidth : width * 0.16
+    property real lastTaskWidth: settingsViewModel.mainTaskWidth > 0
+                                 ? settingsViewModel.mainTaskWidth
+                                 : (settingsViewModel.mainEditorWidth > 0
+                                    ? Math.max(180, width - lastSidebarWidth
+                                               - settingsViewModel.mainEditorWidth - 12)
+                                    : width * 0.34)
     property real lastEditorWidth: settingsViewModel.mainEditorWidth > 0
-                                   ? settingsViewModel.mainEditorWidth : width * 0.45
+                                   ? settingsViewModel.mainEditorWidth : width * 0.50
+    property bool layoutReady: false
+    readonly property bool editorHasRoom: contentSplitView.width >= 520
     readonly property bool searchRelevant: appViewModel.currentView !== "settings"
+
+    Component.onCompleted: {
+        layoutReady = true
+        automaticCollapseTimer.restart()
+    }
 
     function setEditorCollapsed(collapsed) {
         if (collapsed === editorCollapsed)
@@ -27,14 +42,19 @@ ApplicationWindow {
             lastEditorWidth = detailsPanel.width
             persistSplitters()
         }
-        if (!collapsed && lastEditorWidth < 300)
-            lastEditorWidth = Math.max(300, width * 0.38)
+        if (!collapsed && !editorHasRoom)
+            return
+        if (!collapsed && lastEditorWidth < 260)
+            lastEditorWidth = Math.max(260, width * 0.50)
         settingsViewModel.setEditorCollapsed(collapsed)
     }
     function persistSplitters() {
+        lastSidebarWidth = sidebarPanel.width
+        lastTaskWidth = taskListPanel.width
         if (detailsPanel.visible)
             lastEditorWidth = detailsPanel.width
-        settingsViewModel.setMainSplitters(sidebarPanel.width, lastEditorWidth)
+        settingsViewModel.setMainSplitters(
+                    sidebarPanel.width, taskListPanel.width, lastEditorWidth)
     }
     function openView(name) {
         appViewModel.clearMessage()
@@ -44,9 +64,13 @@ ApplicationWindow {
     function startNewTask() {
         if (appViewModel.currentView === "settings")
             appViewModel.setView("inbox")
-        if (editorCollapsed)
+        if (editorCollapsed && editorHasRoom)
             setEditorCollapsed(false)
         appViewModel.beginNewTask()
+    }
+    function collapseEditorIfNeeded(availableWidth) {
+        if (layoutReady && availableWidth < 520 && !editorCollapsed)
+            setEditorCollapsed(true)
     }
     function selectedMonthDate() {
         var parts = appViewModel.selectedMonth.split("-")
@@ -118,6 +142,11 @@ ApplicationWindow {
         onTriggered: root.persistSplitters()
     }
     Timer {
+        id: automaticCollapseTimer
+        interval: 50
+        onTriggered: root.collapseEditorIfNeeded(contentSplitView.width)
+    }
+    Timer {
         id: toastTimer
         interval: 3000
         onTriggered: appViewModel.clearMessage()
@@ -158,9 +187,8 @@ ApplicationWindow {
         Rectangle {
             id: sidebarPanel
             objectName: "sidebarPanel"
-            SplitView.minimumWidth: 150
-            SplitView.preferredWidth: settingsViewModel.mainSidebarWidth > 0
-                                      ? settingsViewModel.mainSidebarWidth : root.width * 0.18
+            SplitView.minimumWidth: 130
+            SplitView.preferredWidth: root.lastSidebarWidth
             SplitView.maximumWidth: 320
             color: Theme.sidebar
 
@@ -249,7 +277,7 @@ ApplicationWindow {
         ColumnLayout {
             id: mainContent
             SplitView.fillWidth: true
-            SplitView.minimumWidth: 710
+            SplitView.minimumWidth: 360
             spacing: 0
 
             Rectangle {
@@ -257,12 +285,12 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: narrow ? 126 : 96
                 color: Theme.bg
-                readonly property bool narrow: width < 790
+                readonly property bool narrow: width < 640
 
                 GridLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: Theme.s24
-                    anchors.rightMargin: Theme.s24
+                    anchors.leftMargin: header.narrow ? Theme.s16 : Theme.s24
+                    anchors.rightMargin: header.narrow ? Theme.s16 : Theme.s24
                     anchors.topMargin: Theme.s12
                     anchors.bottomMargin: Theme.s12
                     columns: header.narrow ? 2 : 3
@@ -295,7 +323,7 @@ ApplicationWindow {
                         objectName: "taskSearchField"
                         visible: root.searchRelevant
                         Layout.fillWidth: true
-                        Layout.minimumWidth: 180
+                        Layout.minimumWidth: header.narrow ? 120 : 180
                         Layout.preferredWidth: 300
                         Layout.maximumWidth: 360
                         selectByMouse: true
@@ -319,6 +347,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 orientation: Qt.Horizontal
+                onWidthChanged: automaticCollapseTimer.restart()
                 onResizingChanged: if (!resizing) splitterSaveTimer.restart()
                 handle: Rectangle {
                     implicitWidth: 6
@@ -329,8 +358,10 @@ ApplicationWindow {
                 Rectangle {
                     id: taskListPanel
                     objectName: "taskListPanel"
-                    SplitView.fillWidth: true
-                    SplitView.minimumWidth: 260
+                    SplitView.fillWidth: root.editorCollapsed
+                                         || appViewModel.currentView === "settings"
+                    SplitView.minimumWidth: 180
+                    SplitView.preferredWidth: root.lastTaskWidth
                     color: Theme.surface
 
                     ColumnLayout {
@@ -363,9 +394,25 @@ ApplicationWindow {
                                 font.weight: Font.DemiBold
                             }
                             CheckBox {
-                                text: "Launch at Startup"
+                                objectName: "startupToggle"
+                                text: "Run PourTask at Windows startup"
                                 checked: settingsViewModel.launchAtStartup
-                                onToggled: settingsViewModel.setLaunchAtStartup(checked)
+                                enabled: settingsViewModel.startupSupported
+                                onClicked: settingsViewModel.setLaunchAtStartup(checked)
+                                ToolTip.visible: hovered && !enabled
+                                ToolTip.text: settingsViewModel.startupUnavailableReason
+                            }
+                            Text {
+                                visible: settingsViewModel.startupError !== ""
+                                         || !settingsViewModel.startupSupported
+                                text: settingsViewModel.startupError !== ""
+                                      ? settingsViewModel.startupError
+                                      : settingsViewModel.startupUnavailableReason
+                                color: settingsViewModel.startupError !== ""
+                                       ? Theme.danger : Theme.secondary
+                                font.pixelSize: Theme.metadata
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
                             }
                             CheckBox {
                                 text: "Close button minimizes to tray"
@@ -476,14 +523,15 @@ ApplicationWindow {
                     objectName: "detailsPanel"
                     visible: !root.editorCollapsed
                              && appViewModel.currentView !== "settings"
-                    SplitView.minimumWidth: 300
+                    SplitView.fillWidth: visible
+                    SplitView.minimumWidth: 260
                     SplitView.preferredWidth: root.lastEditorWidth
-                    SplitView.maximumWidth: Math.max(300, contentSplitView.width - 260)
+                    SplitView.maximumWidth: Math.max(260, contentSplitView.width - 180)
                     task: appViewModel.selectedTask
                     viewModel: appViewModel
                     onCollapseRequested: root.setEditorCollapsed(true)
                     onWidthChanged: {
-                        if (visible && width >= 300)
+                        if (visible && contentSplitView.resizing && width >= 260)
                             root.lastEditorWidth = width
                     }
                 }

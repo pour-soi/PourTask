@@ -3,7 +3,10 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QUrl
 from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickItem
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
+from shiboken6 import getCppPointer, wrapInstance
 
 from app import __version__
 from app.settings import Settings
@@ -16,6 +19,7 @@ def _load_main_and_widget(repository, tmp_path: Path):
     application = QApplication.instance() or QApplication([])
     engine = QQmlApplicationEngine()
     warnings = []
+    engine._warnings = warnings
     engine.warnings.connect(lambda items: warnings.extend(item.toString() for item in items))
     view_model = AppViewModel(repository)
     settings = Settings(tmp_path / "settings.json")
@@ -38,10 +42,23 @@ def _load_main_and_widget(repository, tmp_path: Path):
     return application, engine, view_model, settings_view_model, main, engine.rootObjects()[1]
 
 
+def _visual_items_with_name(item, object_name: str):
+    if not isinstance(item, QQuickItem):
+        item = wrapInstance(getCppPointer(item)[0], QQuickItem)
+    matches = []
+    for child in item.childItems():
+        if child.objectName() == object_name:
+            matches.append(child)
+        matches.extend(_visual_items_with_name(child, object_name))
+    return matches
+
+
 def test_main_window_resizes_collapses_and_hides_settings_search(repository, tmp_path):
     application, engine, view_model, settings, window, widget = _load_main_and_widget(repository, tmp_path)
-    assert window.property("minimumWidth") == 900
-    assert window.property("minimumHeight") == 620
+    assert window.property("minimumWidth") == 720
+    assert window.property("minimumHeight") == 520
+    QTest.qWait(75)
+    assert not window.property("editorCollapsed")
     assert window.property("maximumWidth") > 10000
     assert window.findChild(QObject, "mainSplitView")
     assert window.findChild(QObject, "contentSplitView")
@@ -49,16 +66,17 @@ def test_main_window_resizes_collapses_and_hides_settings_search(repository, tmp
     sidebar = window.findChild(QObject, "sidebarPanel")
     task_panel = window.findChild(QObject, "taskListPanel")
     details = window.findChild(QObject, "detailsPanel")
-    window.setProperty("width", 900)
+    window.setProperty("width", 720)
     application.processEvents()
-    narrow_task_width = task_panel.property("width")
-    assert sidebar.property("width") >= 150
-    assert task_panel.property("width") >= 260
-    assert details.property("width") >= 300
+    assert sidebar.property("width") >= 130
+    assert task_panel.property("width") >= 180
+    assert details.property("width") >= 260
 
     window.setProperty("width", 1500)
     application.processEvents()
-    assert task_panel.property("width") > narrow_task_width
+    window.findChild(QObject, "expandEditorButton").clicked.emit()
+    application.processEvents()
+    assert details.property("width") > task_panel.property("width")
 
     collapse = window.findChild(QObject, "collapseEditorButton")
     collapse.clicked.emit()
@@ -79,7 +97,7 @@ def test_main_window_resizes_collapses_and_hides_settings_search(repository, tmp
     search = window.findChild(QObject, "taskSearchField")
     assert not search.property("visible")
     about_version = window.findChild(QObject, "aboutVersionText")
-    assert about_version.property("text") == "PourTask 1.2.0-beta.1"
+    assert about_version.property("text") == "PourTask 1.2.0-beta.2"
 
     widget.close()
     window.close()
@@ -89,9 +107,9 @@ def test_main_window_resizes_collapses_and_hides_settings_search(repository, tmp
 
 def test_editor_date_controls_wrap_without_overlap(repository, tmp_path):
     application, engine, view_model, settings, window, widget = _load_main_and_widget(repository, tmp_path)
-    settings.setMainSplitters(150, 300)
-    window.setProperty("lastEditorWidth", 300)
-    window.setProperty("width", 900)
+    settings.setMainSplitters(130, 180, 280)
+    window.setProperty("lastEditorWidth", 280)
+    window.setProperty("width", 720)
     window.findChild(QObject, "newTaskButton").clicked.emit()
     application.processEvents()
 
@@ -123,10 +141,12 @@ def test_editor_date_controls_wrap_without_overlap(repository, tmp_path):
 
 def test_widget_defaults_compact_restore_and_quick_add(repository, tmp_path):
     application, engine, view_model, settings, window, widget = _load_main_and_widget(repository, tmp_path)
+    widget.show()
+    application.processEvents()
     assert widget.property("width") == 260
-    assert widget.property("height") == 180
+    assert widget.property("height") == 160
     assert widget.property("minimumWidth") == 220
-    assert widget.property("minimumHeight") == 130
+    assert widget.property("minimumHeight") == 115
     assert widget.findChild(QObject, "widgetDragArea")
     assert widget.findChild(QObject, "widgetLeftResizeHandle")
     assert widget.findChild(QObject, "widgetBottomResizeHandle")
@@ -139,8 +159,10 @@ def test_widget_defaults_compact_restore_and_quick_add(repository, tmp_path):
     compact.clicked.emit()
     application.processEvents()
     assert settings.widgetCompact
-    assert widget.property("height") == 80
-    assert widget.property("minimumHeight") == 70
+    assert widget.property("height") == 70
+    assert widget.property("minimumHeight") == 60
+    assert not widget.findChild(QObject, "widgetTaskList").property("visible")
+    assert not widget.findChild(QObject, "widgetQuickAdd").property("visible")
 
     compact.clicked.emit()
     application.processEvents()
@@ -160,9 +182,15 @@ def test_widget_defaults_compact_restore_and_quick_add(repository, tmp_path):
 
     task_list = widget.findChild(QObject, "widgetTaskList")
     assert task_list.property("count") == 1
-    view_model.setCompleted(created[0].id, True)
+    rows = _visual_items_with_name(task_list, "widgetTaskRow")
+    assert len(rows) == 1, "\n".join(engine._warnings)
+    title = rows[0].findChild(QObject, "widgetTaskTitle")
+    assert title.property("text") == "Widget task"
+    assert rows[0].property("height") == 30
+    rows[0].toggled.emit(True)
     application.processEvents()
     assert task_list.property("count") == 0
+    assert repository.get(created[0].id).completed
 
     widget.close()
     window.close()
@@ -173,7 +201,7 @@ def test_widget_defaults_compact_restore_and_quick_add(repository, tmp_path):
 def test_layout_settings_round_trip(tmp_path):
     settings = Settings(tmp_path / "settings.json")
     view_model = SettingsViewModel(settings, tmp_path / "PourTask.exe")
-    view_model.setMainSplitters(182.4, 412.8)
+    view_model.setMainSplitters(154.4, 326.2, 479.8)
     view_model.setEditorCollapsed(True)
     view_model.setWidgetExpandedSize(305, 215)
     view_model.setWidgetGeometry(90, 110, 305, 215)
@@ -182,10 +210,79 @@ def test_layout_settings_round_trip(tmp_path):
     view_model.setWidgetLockPosition(True)
 
     restored = Settings(tmp_path / "settings.json")
-    assert restored.values["main_splitters"] == {"sidebar": 182, "editor": 413}
+    assert restored.values["main_splitters"] == {
+        "sidebar": 154, "task": 326, "editor": 480,
+    }
     assert restored.values["editor_collapsed"] is True
     assert restored.values["widget_expanded_size"] == {"width": 305, "height": 215}
     assert restored.values["widget_geometry"] == {"x": 90, "y": 110, "width": 305, "height": 215}
     assert restored.values["widget_compact"] is True
     assert restored.values["widget_always_on_top"] is True
     assert restored.values["widget_lock_position"] is True
+
+
+def test_editor_auto_collapse_preserves_unsaved_content(repository, tmp_path):
+    application, engine, view_model, settings, window, widget = _load_main_and_widget(
+        repository, tmp_path
+    )
+    window.findChild(QObject, "newTaskButton").clicked.emit()
+    title = window.findChild(QObject, "taskTitleField")
+    title.setProperty("text", "Keep this draft")
+
+    window.collapseEditorIfNeeded(400)
+    application.processEvents()
+    assert settings.editorCollapsed
+
+    window.setProperty("width", 960)
+    window.setProperty("lastSidebarWidth", 154)
+    application.processEvents()
+    window.findChild(QObject, "expandEditorButton").clicked.emit()
+    application.processEvents()
+    assert not settings.editorCollapsed
+    assert title.property("text") == "Keep this draft"
+
+    widget.close()
+    window.close()
+    application.processEvents()
+    del engine
+
+
+def test_widget_empty_multiple_and_long_titles_render_compactly(repository, tmp_path):
+    application, engine, view_model, settings, window, widget = _load_main_and_widget(
+        repository, tmp_path
+    )
+    widget.show()
+    application.processEvents()
+    task_list = widget.findChild(QObject, "widgetTaskList")
+    quick_add = widget.findChild(QObject, "widgetQuickAdd")
+    empty = widget.findChild(QObject, "widgetEmptyState")
+    assert task_list.property("count") == 0
+    assert empty.property("visible")
+    assert quick_add.property("visible")
+
+    titles = [
+        "First task",
+        "Second task",
+        "A very long Today task title that must be elided inside the small widget",
+    ]
+    for title in titles:
+        assert view_model.addTodayTask(title)
+    widget.setProperty("height", 260)
+    QTest.qWait(50)
+    application.processEvents()
+
+    rows = _visual_items_with_name(task_list, "widgetTaskRow")
+    assert task_list.property("count") == 3
+    assert len(rows) == 3, (
+        f"widget height={widget.property('height')} list height={task_list.property('height')} "
+        f"contentHeight={task_list.property('contentHeight')} rows={len(rows)}"
+    )
+    assert all(row.property("height") == 30 for row in rows)
+    title_items = _visual_items_with_name(task_list, "widgetTaskTitle")
+    assert {item.property("text") for item in title_items} == set(titles)
+    assert all(item.property("maximumLineCount") == 1 for item in title_items)
+
+    widget.close()
+    window.close()
+    application.processEvents()
+    del engine

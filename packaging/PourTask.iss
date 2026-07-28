@@ -40,6 +40,10 @@ VersionInfoProductVersion={#NumericVersion}
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "installed.marker"; DestDir: "{app}"; DestName: ".pourtask-installed"; Attribs: hidden; Flags: ignoreversion
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "PourTask"; Flags: uninsdeletevalue dontcreatekey
 
 [Icons]
 Name: "{autoprograms}\PourTask"; Filename: "{app}\PourTask.exe"

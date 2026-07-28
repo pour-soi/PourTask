@@ -18,6 +18,8 @@ from app.strings import STRINGS
 from app.viewmodels import AppViewModel
 from app.viewmodels.settings_viewmodel import SettingsViewModel
 from app.platform.desktop_widget import DesktopWidgetController
+from app.platform.single_instance import SingleInstanceGuard
+from app.platform.startup import StartupService
 from app.platform.tray import create_tray
 from app.platform.window_geometry import visible_geometry
 
@@ -37,6 +39,10 @@ def _screen_work_areas():
 def run() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("PourTask"); app.setApplicationVersion(__version__); app.setOrganizationName("Pour")
+    startup_launch = "--startup" in sys.argv
+    instance_guard = SingleInstanceGuard()
+    if not instance_guard.acquire(startup_launch):
+        return 0
     paths = AppPaths.default(); paths.ensure(); configure_logging(paths.logs)
     settings = Settings(paths.settings)
     try:
@@ -46,9 +52,10 @@ def run() -> int:
         logging.exception("Database initialization failed")
         return 2
     engine = QQmlApplicationEngine()
-    startup_launch = "--startup" in sys.argv
     tray_available = QSystemTrayIcon.isSystemTrayAvailable()
-    settings_view_model = SettingsViewModel(settings, Path(sys.executable))
+    settings_view_model = SettingsViewModel(
+        settings, Path(sys.executable), StartupService(Path(sys.executable))
+    )
     engine.rootContext().setContextProperty("appViewModel", view_model)
     engine.rootContext().setContextProperty("settingsViewModel", settings_view_model)
     engine.rootContext().setContextProperty("strings", STRINGS)
@@ -65,8 +72,8 @@ def run() -> int:
     geometry = visible_geometry(
         settings.values.get("window_geometry"),
         screens,
-        {"x": window.x(), "y": window.y(), "width": 1300, "height": 780},
-        minimum=(900, 620),
+        {"x": window.x(), "y": window.y(), "width": 960, "height": 700},
+        minimum=(720, 520),
     )
     window.setX(geometry["x"]); window.setY(geometry["y"])
     window.setWidth(geometry["width"]); window.setHeight(geometry["height"])
@@ -94,7 +101,7 @@ def run() -> int:
             window_state["maximized"] = False
 
     window.visibilityChanged.connect(remember_window_state)
-    if saved_maximized and not launchHidden:
+    if saved_maximized and not (startup_launch and tray_available):
         QTimer.singleShot(0, window.showMaximized)
     timer = QTimer(app); timer.setInterval(60_000); timer.timeout.connect(view_model.refresh); timer.start()
     widget_controller = DesktopWidgetController()
@@ -112,14 +119,17 @@ def run() -> int:
             settings.values.get("widget_geometry"),
             screens,
             widget_default,
-            minimum=(220, 70 if compact else 130),
+            minimum=(220, 60 if compact else 115),
             title_height=48,
             keep_entire_window=False,
         )
         widget.setX(widget_geometry["x"]); widget.setY(widget_geometry["y"])
         widget.setWidth(widget_geometry["width"])
-        widget.setHeight(80 if compact else widget_geometry["height"])
-    if widget and settings.values["widget_enabled"]:
+        widget.setHeight(70 if compact else widget_geometry["height"])
+    saved_widget_visible = settings.values.get("widget_visible")
+    if saved_widget_visible is None:
+        saved_widget_visible = bool(settings.values["widget_enabled"])
+    if widget and settings.values["widget_enabled"] and saved_widget_visible:
         widget_controller.show(widget)
 
     def recover_visible_windows():
@@ -137,7 +147,7 @@ def run() -> int:
                 "width": current["width"], "height": current["height"],
             }
             recovered = visible_geometry(
-                current, current_screens, safe_default, minimum=(900, 620),
+                current, current_screens, safe_default, minimum=(720, 520),
             )
             window.setX(recovered["x"]); window.setY(recovered["y"])
             window.setWidth(recovered["width"]); window.setHeight(recovered["height"])
@@ -152,7 +162,7 @@ def run() -> int:
             }
             recovered = visible_geometry(
                 current, current_screens, safe_default,
-                minimum=(220, 70 if bool(settings.values.get("widget_compact")) else 130),
+                minimum=(220, 60 if bool(settings.values.get("widget_compact")) else 115),
                 title_height=48,
                 keep_entire_window=False,
             )
@@ -184,6 +194,8 @@ def run() -> int:
         open_window()
         view_model.beginNewTask()
 
+    instance_guard.activateRequested.connect(open_window)
+
     tray = create_tray(
         app, icon, open_window, quick_add, app.quit,
         widget_controller=widget_controller if widget else None,
@@ -193,14 +205,27 @@ def run() -> int:
 
     def sync_widget():
         if not widget: return
-        widget_controller.show(widget) if settings.values["widget_enabled"] else widget_controller.hide()
+        desired = (
+            settings.values["widget_enabled"]
+            and settings.values.get("widget_visible") is not False
+        )
+        widget_controller.show(widget) if desired else widget_controller.hide()
     settings_view_model.changed.connect(sync_widget)
+
+    def remember_widget_visibility():
+        if not widget:
+            return
+        settings.values["widget_visible"] = widget_controller.visible
+        settings.save()
+
+    widget_controller.visibleChanged.connect(remember_widget_visibility)
 
     def persist_geometry():
         remember_normal_geometry()
         settings.values["window_geometry"] = dict(normal_geometry)
         settings.values["window_maximized"] = window_state["maximized"]
         if widget:
+            settings.values["widget_visible"] = widget_controller.visible
             settings.values["widget_geometry"] = {
                 "x": widget.x(), "y": widget.y(),
                 "width": widget.width(), "height": widget.height(),

@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.2.0-beta.2 - 2026-07-27
+
+External validation build focused on responsive window layout, practical Today-widget use, and user-controlled Windows startup.
+
+- Rebalanced the default three-column layout to favor the task editor while preserving draggable, saved splitters.
+- Reduced the main-window minimum size to 720 x 520 and automatically collapse the editor when space is insufficient without discarding unfinished edits.
+- Made narrow editor fields and actions remain reachable through responsive layout and vertical scrolling.
+- Made the desktop widget render actual Today task titles with compact 30-pixel rows, immediate completion, and shared-model synchronization.
+- Reduced the widget's default and minimum expanded heights while retaining compact mode, native movement and resizing, geometry persistence, and multi-monitor recovery.
+- Added an installed-build-only, per-user Windows startup option backed by the HKCU Run registry key.
+- Made startup launches remain minimized to the system tray and added single-instance coordination for normal and startup invocations.
+- Added installer cleanup for PourTask's own startup registration.
+
 ## v1.2.0-beta.1 - 2026-07-27
 
 Validation build for external testing of the new window layout and desktop widget behavior before the next stable release.
