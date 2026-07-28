@@ -23,9 +23,11 @@ ApplicationWindow {
     property bool pointerInside: false
     property bool controlPressed: false
     property bool nativeInteraction: false
+    property bool quickAddActive: false
+    property bool sizeTransitionActive: false
     property string quickAddError: ""
     readonly property bool hoverCollapseBlocked:
-        quickAdd.activeFocus || widgetMenu.visible || controlPressed || nativeInteraction
+        quickAddActive || quickAdd.activeFocus || widgetMenu.visible || controlPressed || nativeInteraction
 
     function openMain() {
         mainWindow.show()
@@ -36,6 +38,7 @@ ApplicationWindow {
         hoverExpandTimer.stop()
         hoverCollapseTimer.stop()
         hoverExpanded = false
+        quickAddActive = false
         if (value === persistentCompact) {
             height = value ? 70 : settingsViewModel.widgetExpandedHeight
             return
@@ -49,6 +52,17 @@ ApplicationWindow {
             width = settingsViewModel.widgetExpandedWidth
             height = settingsViewModel.widgetExpandedHeight
         }
+    }
+    function beginQuickAdd() {
+        quickAddActive = true
+        quickAddError = ""
+        Qt.callLater(quickAdd.forceActiveFocus)
+    }
+    function cancelQuickAdd() {
+        quickAdd.text = ""
+        quickAddError = ""
+        quickAddActive = false
+        scheduleHoverCollapse()
     }
     function setHoverExpanded(value) {
         if (value === hoverExpanded)
@@ -103,6 +117,15 @@ ApplicationWindow {
     }
     onHoverCollapseBlockedChanged: if (!hoverCollapseBlocked) scheduleHoverCollapse()
 
+    Behavior on height {
+        enabled: !widget.nativeInteraction
+        NumberAnimation {
+            duration: Theme.normal
+            easing.type: Easing.OutCubic
+            onRunningChanged: widget.sizeTransitionActive = running
+        }
+    }
+
     Timer {
         id: geometrySaveTimer
         interval: 400
@@ -142,7 +165,7 @@ ApplicationWindow {
         id: widgetSurface
         objectName: "widgetSurface"
         anchors.fill: parent
-        radius: Theme.rLarge
+        radius: Theme.radius
         color: Theme.elevated
         border.color: Theme.borderStrong
         z: 0
@@ -161,10 +184,12 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.leftMargin: 6
-            anchors.rightMargin: 5
-            anchors.topMargin: 4
-            height: 26
+            anchors.leftMargin: Theme.s8
+            anchors.rightMargin: Theme.s8
+            anchors.topMargin: widget.compact
+                               ? Math.max(5, (widget.height - height) / 2)
+                               : 5
+            height: Theme.widgetHeaderHeight
             z: 3
 
             Item {
@@ -176,14 +201,33 @@ ApplicationWindow {
                 anchors.bottom: parent.bottom
 
                 Text {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
+                    id: todayLabel
+                    anchors.left: brandIcon.right
+                    anchors.leftMargin: Theme.s8
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Today · " + taskList.count
+                    text: "Today"
                     color: Theme.text
                     font.pixelSize: 14
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
+                }
+                Image {
+                    id: brandIcon
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.iconMedium
+                    height: Theme.iconMedium
+                    source: appIconUrl
+                    fillMode: Image.PreserveAspectFit
+                }
+                Text {
+                    anchors.left: todayLabel.right
+                    anchors.leftMargin: Theme.s8
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: taskList.count
+                    color: Theme.accent
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
                 }
                 DragHandler {
                     target: null
@@ -222,38 +266,78 @@ ApplicationWindow {
             }
         }
 
-        PourTextField {
-            id: quickAdd
-            objectName: "widgetQuickAdd"
+        Rectangle {
+            anchors.left: parent.left; anchors.right: parent.right
+            anchors.top: header.bottom
+            anchors.leftMargin: Theme.s8
+            anchors.rightMargin: Theme.s8
+            height: 1; color: Theme.border; visible: !widget.compact
+        }
+
+        Rectangle {
+            id: footer
+            objectName: "widgetFooter"
             visible: !widget.compact
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.leftMargin: 5
-            anchors.rightMargin: 5
-            anchors.bottomMargin: 5
-            height: 30
-            placeholderText: strings.quick_add
-            Accessible.name: "Add a task for today"
+            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+            anchors.leftMargin: Theme.s8
+            anchors.rightMargin: Theme.s8
+            anchors.bottomMargin: Theme.s4
+            height: Theme.compactControlHeight
             z: 3
-            onActiveFocusChanged: if (!activeFocus) widget.scheduleHoverCollapse()
-            onTextEdited: widget.quickAddError = ""
-            onAccepted: {
-                if (appViewModel.addTodayTask(text)) {
-                    text = ""
-                    widget.quickAddError = ""
-                } else {
-                    widget.quickAddError = "Enter a task title."
+            radius: Theme.rSmall
+            color: Theme.subtle
+
+            Button {
+                id: addTaskButton
+                objectName: "widgetAddTaskButton"
+                anchors.fill: parent
+                visible: !widget.quickAddActive
+                text: "+  Add task"
+                Accessible.name: "Add a task for today"
+                contentItem: Text {
+                    text: addTaskButton.text
+                    color: addTaskButton.hovered ? Theme.accentHover : Theme.accent
+                    font.pixelSize: Theme.bodyText
+                    font.weight: Font.DemiBold
+                    verticalAlignment: Text.AlignVCenter
                 }
+                background: Rectangle {
+                    radius: Theme.rSmall
+                    color: addTaskButton.hovered ? Theme.hover : "transparent"
+                }
+                onClicked: widget.beginQuickAdd()
+            }
+
+            PourTextField {
+                id: quickAdd
+                objectName: "widgetQuickAdd"
+                visible: widget.quickAddActive
+                anchors.fill: parent
+                placeholderText: "Task for today"
+                Accessible.name: "Add a task for today"
+                onActiveFocusChanged: if (!activeFocus) widget.scheduleHoverCollapse()
+                onTextEdited: widget.quickAddError = ""
+                onAccepted: {
+                    if (text.trim() === "")
+                        return
+                    if (appViewModel.addTodayTask(text)) {
+                        text = ""
+                        widget.quickAddError = ""
+                        widget.quickAddActive = false
+                    } else {
+                        widget.quickAddError = "Enter a task title."
+                    }
+                }
+                Keys.onEscapePressed: widget.cancelQuickAdd()
             }
         }
 
         Text {
             id: quickAddErrorText
             visible: !widget.compact && widget.quickAddError !== ""
-            anchors.left: quickAdd.left
-            anchors.right: quickAdd.right
-            anchors.bottom: quickAdd.top
+            anchors.left: footer.left
+            anchors.right: footer.right
+            anchors.bottom: footer.top
             anchors.bottomMargin: 1
             text: widget.quickAddError
             color: Theme.danger
@@ -271,11 +355,11 @@ ApplicationWindow {
             anchors.right: parent.right
             anchors.top: header.bottom
             anchors.bottom: quickAddErrorText.visible
-                            ? quickAddErrorText.top : quickAdd.top
-            anchors.leftMargin: 5
-            anchors.rightMargin: 5
-            anchors.topMargin: 2
-            anchors.bottomMargin: 3
+                            ? quickAddErrorText.top : footer.top
+            anchors.leftMargin: Theme.s8
+            anchors.rightMargin: Theme.s8
+            anchors.topMargin: Theme.s4
+            anchors.bottomMargin: Theme.s4
             model: appViewModel.todayTasks
             spacing: 1
             clip: true

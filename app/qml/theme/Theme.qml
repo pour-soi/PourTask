@@ -35,8 +35,13 @@ QtObject {
     readonly property int radius: 12
     readonly property int rLarge: 16
     readonly property int controlHeight: 38
+    readonly property int compactControlHeight: 30
+    readonly property int iconSmall: 16
+    readonly property int iconMedium: 18
+    readonly property int widgetHeaderHeight: 28
+    readonly property int widgetTaskRowHeight: 30
     readonly property int navHeight: 44
-    readonly property int taskRowHeight: 62
+    readonly property int taskRowHeight: 56
     readonly property int sidebarWidth: 208
     readonly property int detailsWidth: 360
     readonly property int pageTitle: 28
@@ -48,6 +53,6 @@ QtObject {
     readonly property int bodyText: 13
     readonly property int labelText: 11
     readonly property int fast: 120
-    readonly property int normal: 180
+    readonly property int normal: 160
     readonly property int slow: 240
 }

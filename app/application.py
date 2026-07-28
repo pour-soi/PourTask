@@ -227,6 +227,19 @@ def run() -> int:
         )
         widget_controller.show(widget) if desired else widget_controller.hide()
     settings_view_model.changed.connect(sync_widget)
+    settings_view_model.showWidgetRequested.connect(
+        lambda: (recover_visible_windows(), widget_controller.show(widget)) if widget else None
+    )
+
+    def reset_widget_position():
+        if not widget or not QGuiApplication.primaryScreen():
+            return
+        area = QGuiApplication.primaryScreen().availableGeometry()
+        widget.setX(area.x() + max(12, area.width() - widget.width() - 24))
+        widget.setY(area.y() + 24)
+        widget_controller.show(widget)
+
+    settings_view_model.resetWidgetRequested.connect(reset_widget_position)
 
     def remember_widget_visibility():
         if not widget:

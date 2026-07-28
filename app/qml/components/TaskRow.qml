@@ -29,9 +29,9 @@ Rectangle {
         anchors.fill: parent
         anchors.leftMargin: row.compact ? Theme.s8 : Theme.s12
         anchors.rightMargin: row.compact ? Theme.s8 : Theme.s12
-        anchors.topMargin: row.compact ? Theme.s4 : Theme.s8
-        anchors.bottomMargin: row.compact ? Theme.s4 : Theme.s8
-        spacing: row.compact ? Theme.s8 : Theme.s12
+        anchors.topMargin: Theme.s4
+        anchors.bottomMargin: Theme.s4
+        spacing: Theme.s8
         TaskCheckBox {
             checked: row.completed
             onToggled: row.toggled(checked)
@@ -39,7 +39,7 @@ Rectangle {
         }
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: row.compact ? 0 : Theme.s4
+            spacing: row.compact ? 0 : 2
             Text {
                 text: row.title; color: Theme.text; font.pixelSize: Theme.taskTitle; font.weight: Font.DemiBold
                 font.strikeout: row.completed; elide: Text.ElideRight; Layout.fillWidth: true
@@ -50,7 +50,7 @@ Rectangle {
                 spacing: Theme.s8
                 Rectangle {
                     visible: row.warning.length > 0
-                    implicitWidth: warningText.implicitWidth + Theme.s12; implicitHeight: 22
+                    implicitWidth: warningText.implicitWidth + Theme.s12; implicitHeight: 20
                     radius: Theme.rSmall; color: Theme.warningBg
                     Text { id: warningText; anchors.centerIn: parent; text: row.warning; color: Theme.warning; font.pixelSize: Theme.metadata; font.weight: Font.DemiBold }
                 }
@@ -61,7 +61,7 @@ Rectangle {
     MouseArea {
         id: mouse
         anchors.fill: parent
-        anchors.leftMargin: row.compact ? 42 : 52
+        anchors.leftMargin: row.compact ? 40 : 48
         hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: row.opened()
     }
 }

@@ -5,11 +5,17 @@ import "../theme"
 
 Item {
     id: editor
+    objectName: "taskEditor"
     property var task: ({})
     property var viewModel
     property bool creating: false
     property bool completed: !creating && Boolean(task.completed)
     property bool assignedMonthManual: !creating
+    function layoutStateForWidth(value) {
+        return value >= 460 ? 0 : (value >= 360 ? 1 : (value >= 280 ? 2 : 3))
+    }
+    readonly property int layoutState: layoutStateForWidth(width)
+    readonly property bool narrowActions: width < 300
     readonly property bool popupOpen: scheduledField.popupOpen || dueField.popupOpen || monthField.popupOpen
     signal cancelRequested()
 
@@ -72,8 +78,9 @@ Item {
         clip: true
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
-            width: Math.max(0, editor.width - Theme.s4)
-            spacing: Theme.s8
+            id: formColumn
+            width: Math.max(0, editor.width - (editor.layoutState >= 2 ? Theme.s8 : Theme.s12))
+            spacing: editor.layoutState === 0 ? Theme.s8 : Theme.s4
             Text { text: "TITLE"; color: Theme.dim; font.pixelSize: Theme.labelText; font.weight: Font.DemiBold }
             PourTextField {
                 id: titleField; objectName: "taskTitleField"; Layout.fillWidth: true
@@ -85,7 +92,11 @@ Item {
             Text { text: "NOTES"; color: Theme.dim; font.pixelSize: Theme.labelText; font.weight: Font.DemiBold }
             PourTextArea {
                 id: notesField; objectName: "taskNotesField"
-                Layout.fillWidth: true; Layout.preferredHeight: Math.max(132, editor.height * 0.24)
+                Layout.fillWidth: true
+                Layout.preferredHeight: editor.layoutState === 0 ? 144
+                                        : (editor.layoutState === 1 ? 128
+                                           : (editor.layoutState === 2 ? 112 : 96))
+                Layout.minimumHeight: 88
                 readOnly: editor.completed
                 placeholderText: "Add notes, URLs, Chinese or English text"
             }
@@ -93,7 +104,8 @@ Item {
             PourDateField {
                 id: scheduledField; objectName: "scheduleDateField"; pickerObjectName: "scheduleCalendarButton"
                 viewModel: editor.viewModel
-                Layout.fillWidth: true; readOnly: editor.completed; placeholderText: "Schedule Date · MM/DD/YYYY"
+                Layout.fillWidth: true; Layout.preferredWidth: formColumn.width
+                readOnly: editor.completed; placeholderText: "Schedule Date · MM/DD/YYYY"
                 onPopupOpening: { dueField.closePopup(); monthField.closePopup() }
                 onNormalized: editor.updateAutomaticMonth()
             }
@@ -101,7 +113,8 @@ Item {
             PourDateField {
                 id: dueField; objectName: "dueDateField"; pickerObjectName: "dueCalendarButton"
                 viewModel: editor.viewModel
-                Layout.fillWidth: true; readOnly: editor.completed; placeholderText: "Due Date · MM/DD/YYYY"
+                Layout.fillWidth: true; Layout.preferredWidth: formColumn.width
+                readOnly: editor.completed; placeholderText: "Due Date · MM/DD/YYYY"
                 onPopupOpening: { scheduledField.closePopup(); monthField.closePopup() }
                 onNormalized: editor.updateAutomaticMonth()
             }
@@ -109,34 +122,41 @@ Item {
             PourMonthField {
                 id: monthField; objectName: "assignedMonthField"
                 viewModel: editor.viewModel
-                Layout.fillWidth: true; readOnly: editor.completed; placeholderText: "Assigned Month · MM/YYYY"
+                Layout.fillWidth: true; Layout.preferredWidth: formColumn.width
+                readOnly: editor.completed; placeholderText: "Assigned Month · MM/YYYY"
                 onPopupOpening: { scheduledField.closePopup(); dueField.closePopup() }
                 onManuallyEdited: editor.assignedMonthManual = true
             }
-            RowLayout {
+            GridLayout {
                 objectName: "taskActionRow"
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.s8
-                spacing: Theme.s8
+                columns: editor.narrowActions ? 1 : 2
+                rowSpacing: Theme.s8
+                columnSpacing: Theme.s8
                 PrimaryButton {
                     objectName: "saveTaskButton"
                     visible: !editor.completed
                     text: editor.creating ? "Save Task" : "Save"
                     iconName: "completed"; onClicked: editor.save()
+                    Layout.fillWidth: editor.narrowActions
                 }
                 PourButton {
                     objectName: "cancelTaskButton"
                     visible: editor.creating; text: "Cancel"; onClicked: editor.cancelRequested()
+                    Layout.fillWidth: editor.narrowActions
+                    Layout.alignment: editor.narrowActions ? Qt.AlignLeft : Qt.AlignRight
                 }
                 PrimaryButton {
                     visible: editor.completed; text: "Restore"; iconName: "completed"
                     onClicked: editor.viewModel.setCompleted(editor.task.id, false)
                 }
-                Item { Layout.fillWidth: true }
-                PourButton {
+                DangerButton {
                     objectName: "deleteTaskButton"
                     visible: !editor.creating; text: "Delete"
                     onClicked: editor.viewModel.deleteTask(editor.task.id)
+                    Layout.fillWidth: editor.narrowActions
+                    Layout.alignment: editor.narrowActions ? Qt.AlignLeft : Qt.AlignRight
                 }
             }
         }

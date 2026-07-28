@@ -10,8 +10,11 @@ TextArea {
     font.pixelSize: Theme.bodyText; wrapMode: TextEdit.Wrap
     background: Rectangle {
         radius: Theme.rControl
-        color: control.activeFocus ? Theme.surface : Theme.input
+        color: control.activeFocus ? Theme.surface
+                                   : (control.hovered ? Theme.subtle : Theme.input)
         border.width: control.activeFocus ? 2 : 1
         border.color: control.activeFocus ? Theme.accent : Theme.border
+        Behavior on color { ColorAnimation { duration: Theme.fast } }
+        Behavior on border.color { ColorAnimation { duration: Theme.fast } }
     }
 }

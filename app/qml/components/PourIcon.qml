@@ -11,6 +11,9 @@ Item {
     Canvas {
         id: canvas
         anchors.fill: parent
+        Component.onCompleted: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
         onPaint: {
             var c = getContext("2d")
             c.reset()
@@ -46,6 +49,9 @@ Item {
                 c.strokeRect(w*.18,h*.34,w*.48,h*.48)
                 c.beginPath(); c.moveTo(w*.45,h*.18); c.lineTo(w*.82,h*.18); c.lineTo(w*.82,h*.55)
                 c.moveTo(w*.82,h*.18); c.lineTo(w*.43,h*.57); c.stroke()
+            } else if (icon.name === "clear") {
+                c.beginPath(); c.moveTo(w*.28,h*.28); c.lineTo(w*.72,h*.72)
+                c.moveTo(w*.72,h*.28); c.lineTo(w*.28,h*.72); c.stroke()
             }
         }
         Connections { target: icon; function onIconColorChanged() { canvas.requestPaint() } function onNameChanged() { canvas.requestPaint() } }

@@ -5,8 +5,8 @@ import "../theme"
 Button {
     id: control
     property string iconName: ""
-    implicitWidth: 28
-    implicitHeight: 26
+    implicitWidth: Theme.compactControlHeight
+    implicitHeight: Theme.compactControlHeight
     padding: 0
     hoverEnabled: true
     Accessible.role: Accessible.Button
@@ -16,8 +16,8 @@ Button {
     contentItem: PourIcon {
         name: control.iconName
         iconColor: control.down ? Theme.elevated : Theme.secondary
-        width: 15
-        height: 15
+        width: Theme.iconSmall
+        height: Theme.iconSmall
         anchors.centerIn: parent
     }
     background: Rectangle {

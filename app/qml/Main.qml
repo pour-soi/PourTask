@@ -178,10 +178,18 @@ ApplicationWindow {
         anchors.fill: parent
         orientation: Qt.Horizontal
         onResizingChanged: if (!resizing) splitterSaveTimer.restart()
-        handle: Rectangle {
+        handle: Item {
+            id: mainHandle
             implicitWidth: 6
-            color: SplitHandle.pressed || SplitHandle.hovered
-                   ? Theme.borderStrong : Theme.border
+            Rectangle {
+                anchors.centerIn: parent
+                width: mainHandle.SplitHandle.pressed || mainHandle.SplitHandle.hovered ? 2 : 1
+                height: parent.height
+                color: mainHandle.SplitHandle.pressed ? Theme.accent
+                         : (mainHandle.SplitHandle.hovered ? Theme.borderStrong : Theme.border)
+                Behavior on width { NumberAnimation { duration: Theme.fast } }
+                Behavior on color { ColorAnimation { duration: Theme.fast } }
+            }
         }
 
         Rectangle {
@@ -203,10 +211,10 @@ ApplicationWindow {
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.bottomMargin: Theme.s24
-                    spacing: Theme.s12
+                        spacing: Theme.s8
                     Rectangle {
-                        Layout.preferredWidth: 36
-                        Layout.preferredHeight: 36
+                        Layout.preferredWidth: Theme.s32
+                        Layout.preferredHeight: Theme.s32
                         radius: Theme.rControl
                         color: "transparent"
                         border.color: Theme.border
@@ -225,7 +233,7 @@ ApplicationWindow {
                         Text {
                             text: "PourTask"
                             color: Theme.text
-                            font.pixelSize: 18
+                            font.pixelSize: 16
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                             Layout.fillWidth: true
@@ -284,7 +292,7 @@ ApplicationWindow {
             Rectangle {
                 id: header
                 Layout.fillWidth: true
-                Layout.preferredHeight: narrow ? 126 : 96
+                Layout.preferredHeight: narrow ? 118 : 88
                 color: Theme.bg
                 readonly property bool narrow: width < 640
 
@@ -350,10 +358,20 @@ ApplicationWindow {
                 orientation: Qt.Horizontal
                 onWidthChanged: automaticCollapseTimer.restart()
                 onResizingChanged: if (!resizing) splitterSaveTimer.restart()
-                handle: Rectangle {
+                handle: Item {
+                    id: contentHandle
                     implicitWidth: 6
-                    color: SplitHandle.pressed || SplitHandle.hovered
-                           ? Theme.borderStrong : Theme.border
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: contentHandle.SplitHandle.pressed
+                               || contentHandle.SplitHandle.hovered ? 2 : 1
+                        height: parent.height
+                        color: contentHandle.SplitHandle.pressed ? Theme.accent
+                                 : (contentHandle.SplitHandle.hovered
+                                    ? Theme.borderStrong : Theme.border)
+                        Behavior on width { NumberAnimation { duration: Theme.fast } }
+                        Behavior on color { ColorAnimation { duration: Theme.fast } }
+                    }
                 }
 
                 Rectangle {
@@ -367,116 +385,147 @@ ApplicationWindow {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: Theme.s24
-                        anchors.rightMargin: Theme.s24
-                        anchors.topMargin: Theme.s16
-                        anchors.bottomMargin: Theme.s20
-                        spacing: Theme.s12
+                        anchors.leftMargin: taskListPanel.width < 340 ? Theme.s12 : Theme.s20
+                        anchors.rightMargin: taskListPanel.width < 340 ? Theme.s12 : Theme.s20
+                        anchors.topMargin: Theme.s12
+                        anchors.bottomMargin: Theme.s16
+                        spacing: Theme.s8
 
                         RowLayout {
                             visible: appViewModel.currentView === "month"
                             Layout.fillWidth: true
-                            spacing: Theme.s8
-                            PourButton { text: "Previous"; onClicked: appViewModel.changeMonth(-1) }
+                            spacing: Theme.s4
+                            WidgetIconButton {
+                                iconName: "left"
+                                ToolTip.text: "Previous month"
+                                onClicked: appViewModel.changeMonth(-1)
+                            }
                             Item { Layout.fillWidth: true }
-                            PourButton { text: "Current Month"; onClicked: appViewModel.currentMonth() }
-                            PourButton { text: "Next"; onClicked: appViewModel.changeMonth(1) }
+                            PourButton { text: "This month"; onClicked: appViewModel.currentMonth() }
+                            WidgetIconButton {
+                                iconName: "right"
+                                ToolTip.text: "Next month"
+                                onClicked: appViewModel.changeMonth(1)
+                            }
                         }
 
-                        ColumnLayout {
+                        ScrollView {
+                            id: settingsScroll
                             visible: appViewModel.currentView === "settings"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            spacing: Theme.s16
-                            Text {
-                                text: "APPLICATION"
-                                color: Theme.dim
-                                font.pixelSize: Theme.groupHeading
-                                font.weight: Font.DemiBold
-                            }
-                            CheckBox {
-                                objectName: "startupToggle"
-                                text: "Run PourTask at Windows startup"
-                                checked: settingsViewModel.launchAtStartup
-                                enabled: settingsViewModel.startupSupported
-                                onClicked: settingsViewModel.setLaunchAtStartup(checked)
-                                ToolTip.visible: hovered && !enabled
-                                ToolTip.text: settingsViewModel.startupUnavailableReason
-                            }
-                            Text {
-                                visible: settingsViewModel.startupError !== ""
-                                         || !settingsViewModel.startupSupported
-                                text: settingsViewModel.startupError !== ""
-                                      ? settingsViewModel.startupError
-                                      : settingsViewModel.startupUnavailableReason
-                                color: settingsViewModel.startupError !== ""
-                                       ? Theme.danger : Theme.secondary
-                                font.pixelSize: Theme.metadata
-                                wrapMode: Text.WordWrap
-                                Layout.fillWidth: true
-                            }
-                            CheckBox {
-                                text: "Close button minimizes to tray"
-                                checked: settingsViewModel.minimizeToTray
-                                onToggled: settingsViewModel.setMinimizeToTray(checked)
-                            }
-                            CheckBox {
-                                text: "Enable Desktop Widget (safe window mode)"
-                                checked: settingsViewModel.widgetEnabled
-                                onToggled: settingsViewModel.setWidgetEnabled(checked)
-                            }
-                            CheckBox {
-                                objectName: "widgetHoverExpandToggle"
-                                text: "Expand widget on hover"
-                                checked: settingsViewModel.widgetExpandOnHover
-                                onToggled: settingsViewModel.setWidgetExpandOnHover(checked)
-                            }
-                            Rectangle {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 1
-                                color: Theme.border
-                            }
-                            Text {
-                                text: "LOCAL BACKUPS"
-                                color: Theme.dim
-                                font.pixelSize: Theme.groupHeading
-                                font.weight: Font.DemiBold
-                            }
-                            RowLayout {
-                                spacing: Theme.s8
-                                PrimaryButton {
-                                    text: "Export Backup"
-                                    iconName: "completed"
-                                    onClicked: appViewModel.exportBackup()
+                            clip: true
+                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                            ColumnLayout {
+                                width: Math.min(620, Math.max(0, settingsScroll.availableWidth - Theme.s4))
+                                x: Math.max(0, (settingsScroll.availableWidth - width) / 2)
+                                spacing: Theme.s12
+
+                                SettingsSection {
+                                    objectName: "generalSettingsSection"
+                                    title: "GENERAL"
+                                    description: "Choose how PourTask behaves when its main window closes."
+                                    CheckBox {
+                                        text: "Close button minimizes to tray"
+                                        checked: settingsViewModel.minimizeToTray
+                                        onToggled: settingsViewModel.setMinimizeToTray(checked)
+                                    }
                                 }
-                                PourButton {
-                                    text: "Replace Current Data..."
-                                    onClicked: appViewModel.importBackup()
+                                SettingsSection {
+                                    objectName: "startupSettingsSection"
+                                    title: "WINDOWS STARTUP"
+                                    description: "Start quietly in the tray when you sign in."
+                                    CheckBox {
+                                        objectName: "startupToggle"
+                                        text: "Run PourTask at Windows startup"
+                                        checked: settingsViewModel.launchAtStartup
+                                        enabled: settingsViewModel.startupSupported
+                                        onClicked: settingsViewModel.setLaunchAtStartup(checked)
+                                        ToolTip.visible: hovered && !enabled
+                                        ToolTip.text: settingsViewModel.startupUnavailableReason
+                                    }
+                                    Text {
+                                        visible: settingsViewModel.startupError !== ""
+                                                 || !settingsViewModel.startupSupported
+                                        text: settingsViewModel.startupError !== ""
+                                              ? settingsViewModel.startupError
+                                              : settingsViewModel.startupUnavailableReason
+                                        color: settingsViewModel.startupError !== ""
+                                               ? Theme.danger : Theme.secondary
+                                        font.pixelSize: Theme.metadata
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
                                 }
-                            }
-                            Text {
-                                text: "Replacement validates the imported database and creates a safety backup first."
-                                color: Theme.secondary
-                                font.pixelSize: Theme.bodyText
-                                wrapMode: Text.WordWrap
-                                Layout.fillWidth: true
-                            }
-                            Item { Layout.fillHeight: true }
-                            RowLayout {
-                                spacing: Theme.s8
-                                Image {
-                                    source: appIconUrl
-                                    Layout.preferredWidth: 24
-                                    Layout.preferredHeight: 24
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
+                                SettingsSection {
+                                    objectName: "widgetSettingsSection"
+                                    title: "DESKTOP WIDGET"
+                                    description: "Keep Today tasks glanceable without opening the main window."
+                                    CheckBox {
+                                        objectName: "widgetEnabledToggle"
+                                        text: "Enable Desktop Widget"
+                                        checked: settingsViewModel.widgetEnabled
+                                        onToggled: settingsViewModel.setWidgetEnabled(checked)
+                                    }
+                                    CheckBox {
+                                        objectName: "widgetHoverExpandToggle"
+                                        text: "Expand widget on hover"
+                                        checked: settingsViewModel.widgetExpandOnHover
+                                        enabled: settingsViewModel.widgetEnabled
+                                        onToggled: settingsViewModel.setWidgetExpandOnHover(checked)
+                                    }
+                                    RowLayout {
+                                        spacing: Theme.s8
+                                        PourButton {
+                                            objectName: "showWidgetButton"
+                                            text: "Show Widget"
+                                            enabled: settingsViewModel.widgetEnabled
+                                            onClicked: settingsViewModel.showWidget()
+                                        }
+                                        PourButton {
+                                            objectName: "resetWidgetPositionButton"
+                                            text: "Reset Position"
+                                            enabled: settingsViewModel.widgetEnabled
+                                            onClicked: settingsViewModel.resetWidgetPosition()
+                                        }
+                                    }
                                 }
-                                Text {
-                                    objectName: "aboutVersionText"
-                                    text: "PourTask " + appVersion
-                                    color: Theme.dim
-                                    font.pixelSize: Theme.bodyText
-                                    Accessible.name: "PourTask version " + appVersion
+                                SettingsSection {
+                                    objectName: "dataSettingsSection"
+                                    title: "LOCAL DATA"
+                                    description: "Backups stay on this computer. Replacement is validated before use."
+                                    RowLayout {
+                                        spacing: Theme.s8
+                                        PrimaryButton {
+                                            text: "Export Backup"
+                                            iconName: "completed"
+                                            onClicked: appViewModel.exportBackup()
+                                        }
+                                        PourButton {
+                                            text: "Replace Data..."
+                                            onClicked: appViewModel.importBackup()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.leftMargin: Theme.s4
+                                    Layout.bottomMargin: Theme.s8
+                                    spacing: Theme.s8
+                                    Image {
+                                        source: appIconUrl
+                                        Layout.preferredWidth: 24
+                                        Layout.preferredHeight: 24
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                    }
+                                    Text {
+                                        objectName: "aboutVersionText"
+                                        text: "PourTask " + appVersion
+                                        color: Theme.dim
+                                        font.pixelSize: Theme.bodyText
+                                        Accessible.name: "PourTask version " + appVersion
+                                    }
                                 }
                             }
                         }
@@ -515,17 +564,16 @@ ApplicationWindow {
                         anchors.top: parent.top
                         anchors.topMargin: Theme.s16
                         width: 30
-                        height: 36
-                        text: "‹"
+                        height: Theme.controlHeight
                         ToolTip.visible: hovered
                         ToolTip.text: "Expand task details"
                         onClicked: root.setEditorCollapsed(false)
-                        contentItem: Text {
-                            text: expandEditorButton.text
-                            color: Theme.secondary
-                            font.pixelSize: 20
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
+                        contentItem: PourIcon {
+                            name: "left"
+                            iconColor: expandEditorButton.hovered ? Theme.accent : Theme.secondary
+                            width: Theme.iconSmall
+                            height: Theme.iconSmall
+                            anchors.centerIn: parent
                         }
                         background: Rectangle {
                             radius: Theme.rSmall

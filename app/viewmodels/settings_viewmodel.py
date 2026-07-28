@@ -8,6 +8,8 @@ from app.settings import Settings
 
 class SettingsViewModel(QObject):
     changed = Signal()
+    showWidgetRequested = Signal()
+    resetWidgetRequested = Signal()
 
     def __init__(self, settings: Settings, executable: Path, startup_service=None):
         super().__init__()
@@ -136,3 +138,15 @@ class SettingsViewModel(QObject):
     def setWidgetExpandOnHover(self, enabled):
         self.settings.values["widget_expand_on_hover"] = enabled
         self.settings.save(); self.changed.emit()
+
+    @Slot()
+    def showWidget(self):
+        self.settings.values["widget_enabled"] = True
+        self.settings.values["widget_visible"] = True
+        self.settings.save()
+        self.changed.emit()
+        self.showWidgetRequested.emit()
+
+    @Slot()
+    def resetWidgetPosition(self):
+        self.resetWidgetRequested.emit()

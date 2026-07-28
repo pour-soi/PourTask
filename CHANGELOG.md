@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.2.0 - 2026-07-28
+
+PourTask 1.2.0 is the stable culmination of the 1.2 validation cycle, focused on responsive desktop layouts, a practical Today widget, stronger Windows integration, and a cohesive commercial-quality interface.
+
+### Desktop
+
+- Added a responsive three-column layout with user-adjustable, persisted splitters and a smaller 720 x 520 minimum window size.
+- Reworked Task Details into a genuinely responsive editor that reflows fields and actions as its panel narrows while preserving drafts and vertical access.
+- Improved Settings organization, information density, typography, spacing, interaction feedback, and animation consistency through unified design tokens.
+- Added a distinctive PourTask application icon across the runtime, taskbar, Alt+Tab, tray, executable, installer, shortcuts, and installed-app listing.
+
+### Desktop Widget
+
+- Redesigned the widget as a compact desktop card with real-time Today task rows, Compact and Expanded modes, optional delayed hover expansion, and inline Quick Add.
+- Added Show Widget and Reset Widget Position controls while retaining native movement, resizing, task completion, and synchronized task updates.
+- Refined widget spacing, hierarchy, empty states, controls, and transitions for a denser, more glanceable experience.
+
+### Windows
+
+- Added an opt-in per-user startup setting with tray-minimized launch, single-instance protection, and uninstall cleanup.
+- Improved tray behavior, geometry persistence, multi-monitor recovery, and high-DPI resilience for the main window and desktop widget.
+
+### Product Polish
+
+- Completed a broad responsive-layout, consistency, accessibility, and Windows desktop UX pass without changing task storage, task semantics, or user-data locations.
+
 ## v1.2.0-beta.3 - 2026-07-28
 
 Third external validation build focused on reliable desktop-widget rendering, optional hover expansion, denser interface details, and complete PourTask icon integration.

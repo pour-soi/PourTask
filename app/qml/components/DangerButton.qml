@@ -7,19 +7,21 @@ Button {
     implicitHeight: Theme.controlHeight
     leftPadding: Theme.s12
     rightPadding: Theme.s12
-    font.pixelSize: Theme.bodyText
+    hoverEnabled: true
     contentItem: Text {
         text: control.text
-        color: !control.enabled ? Theme.dim : (control.down ? Theme.elevated : Theme.text)
+        color: control.down ? Theme.elevated : Theme.danger
+        font.pixelSize: Theme.bodyText
+        font.weight: Font.DemiBold
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }
     background: Rectangle {
         radius: Theme.rControl
-        color: !control.enabled ? Theme.subtle
-                               : (control.down ? Theme.accent
-                                  : (control.hovered ? Theme.accentDim : Theme.elevated))
-        border.color: control.activeFocus ? Theme.accent : Theme.border
+        color: control.down ? Theme.danger
+                            : (control.hovered ? Theme.dangerBg : Theme.elevated)
+        border.color: control.activeFocus ? Theme.danger : Theme.border
         Behavior on color { ColorAnimation { duration: Theme.fast } }
+        Behavior on border.color { ColorAnimation { duration: Theme.fast } }
     }
 }

@@ -14,21 +14,23 @@ Rectangle {
     color: Theme.surface
 
     ColumnLayout {
-        anchors.fill: parent; anchors.margins: Theme.s24; spacing: Theme.s12
+        anchors.fill: parent
+        anchors.margins: panel.width < 340 ? Theme.s12 : Theme.s20
+        spacing: panel.width < 340 ? Theme.s8 : Theme.s12
         RowLayout {
             Layout.fillWidth: true
             Text {
                 objectName: "taskDetailsHeading"
                 text: panel.creating ? "New Task" : "Task Details"
                 color: Theme.text
-                font.pixelSize: 18
+                font.pixelSize: 17
                 font.weight: Font.Bold
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
-            PourButton {
+            WidgetIconButton {
                 objectName: "collapseEditorButton"
-                text: "›"
+                iconName: "right"
                 ToolTip.text: "Collapse task details"
                 onClicked: panel.collapseRequested()
             }

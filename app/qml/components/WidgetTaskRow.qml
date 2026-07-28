@@ -13,9 +13,10 @@ Rectangle {
     signal toggled(bool completed)
     signal opened()
     signal interactionChanged(bool active)
+    property bool completionPending: false
 
     width: ListView.view ? ListView.view.width : 0
-    height: 30
+    height: Theme.widgetTaskRowHeight
     visible: true
     opacity: 1
     z: 2
@@ -30,8 +31,18 @@ Rectangle {
 
         TaskCheckBox {
             id: completionBox
+            indicatorSize: 16
+            implicitWidth: Theme.widgetHeaderHeight
+            implicitHeight: Theme.widgetHeaderHeight
             checked: row.completed
-            onToggled: row.toggled(checked)
+            onToggled: {
+                if (checked) {
+                    row.completionPending = true
+                    completionFade.restart()
+                } else {
+                    row.toggled(false)
+                }
+            }
             onPressedChanged: row.interactionChanged(pressed)
             Accessible.name: "Complete " + row.title
         }
@@ -49,6 +60,17 @@ Rectangle {
             text: row.displayDate
             color: Theme.secondary
             font.pixelSize: Theme.metadata
+        }
+    }
+
+    SequentialAnimation {
+        id: completionFade
+        NumberAnimation { target: row; property: "opacity"; to: 0.35; duration: 90 }
+        ScriptAction {
+            script: {
+                row.toggled(true)
+                row.completionPending = false
+            }
         }
     }
 
