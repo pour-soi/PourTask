@@ -11,6 +11,7 @@ ColumnLayout {
     property alias readOnly: input.readOnly
     property var viewModel
     property string errorText: ""
+    readonly property bool narrow: width < 340
     readonly property bool popupOpen: picker.opened
     signal normalized(string isoMonth)
     signal manuallyEdited()
@@ -42,12 +43,16 @@ ColumnLayout {
         if (userAction) manuallyEdited()
     }
 
-    RowLayout {
-        Layout.fillWidth: true; spacing: Theme.s4
+    GridLayout {
+        Layout.fillWidth: true
+        columns: control.narrow ? 2 : 3
+        columnSpacing: Theme.s4
+        rowSpacing: Theme.s4
         PourTextField {
             id: input
             objectName: control.objectName + "Input"
             Layout.fillWidth: true
+            Layout.columnSpan: control.narrow ? 2 : 1
             error: control.errorText.length > 0
             selectByMouse: true
             onTextEdited: { control.errorText = ""; control.manuallyEdited() }
@@ -75,8 +80,11 @@ ColumnLayout {
             }
         }
         PourButton {
+            objectName: control.objectName + "ClearButton"
             visible: control.text.length > 0 && !control.readOnly
-            text: "Clear"; onClicked: control.clearValue(true)
+            text: "Clear"
+            Layout.fillWidth: control.narrow
+            onClicked: control.clearValue(true)
         }
     }
     FieldError { text: control.errorText }

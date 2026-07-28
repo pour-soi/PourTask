@@ -32,6 +32,7 @@ jobs:
         run: |
           .\.venv\Scripts\python.exe -m pip install --upgrade pip
           .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          choco install innosetup --no-progress -y
 
       - name: Read application version
         id: version
@@ -83,6 +84,13 @@ jobs:
           if ($checksum.Trim() -ne "$actual  $name") {
             throw "Release checksum does not match the Windows ZIP."
           }
+          $installerName = "PourTask-v${{ steps.version.outputs.version }}-Windows-Setup.exe"
+          $installer = Join-Path "release" $installerName
+          $installerChecksum = Get-Content -LiteralPath "$installer.sha256" -Raw
+          $installerActual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($installerChecksum.Trim() -ne "$installerActual  $installerName") {
+            throw "Release checksum does not match the Windows installer."
+          }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -91,5 +99,7 @@ jobs:
           path: |
             release/PourTask-v${{ steps.version.outputs.version }}-Windows.zip
             release/PourTask-v${{ steps.version.outputs.version }}-Windows.zip.sha256
+            release/PourTask-v${{ steps.version.outputs.version }}-Windows-Setup.exe
+            release/PourTask-v${{ steps.version.outputs.version }}-Windows-Setup.exe.sha256
           if-no-files-found: error
           compression-level: 0

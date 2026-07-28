@@ -72,6 +72,7 @@ class AppViewModel(QAbstractListModel):
         self.undo_service = UndoService()
         self.backups = BackupService(repository.database, repository.database.path.parent.parent / "backups")
         self.model = TaskListModel()
+        self.today_model = TaskListModel()
         self._view, self._month, self._query, self._message = "today", date.today().strftime("%Y-%m"), "", ""
         self._view_before_search = "today"
         self._selected: Task | None = None
@@ -82,6 +83,8 @@ class AppViewModel(QAbstractListModel):
 
     @Property("QVariant", constant=True)
     def tasks(self): return self.model
+    @Property("QVariant", constant=True)
+    def todayTasks(self): return self.today_model
     @Property(str, notify=viewChanged)
     def currentView(self): return self._view
     @Property(str, notify=monthChanged)
@@ -131,11 +134,26 @@ class AppViewModel(QAbstractListModel):
     @Slot()
     def currentMonth(self): self._month = date.today().strftime("%Y-%m"); self.monthChanged.emit(); self.refresh()
 
-    @Slot(str)
+    @Slot(str, result=bool)
     def addTask(self, title):
-        try: self.service.create(title)
-        except ValueError as exc: self._tell(str(exc)); return
-        self._tell("Task created"); self.refresh()
+        try:
+            self.service.create(title)
+        except ValueError as exc:
+            self._tell(str(exc)); return False
+        self._tell("Task created"); self.refresh(); return True
+
+    @Slot(str, result=bool)
+    def addTodayTask(self, title):
+        today = date.today()
+        try:
+            self.service.create(
+                title,
+                scheduled_date=today,
+                assigned_month=today.strftime("%Y-%m"),
+            )
+        except ValueError as exc:
+            self._tell(str(exc)); return False
+        self._tell("Task created in Today."); self.refresh(); return True
 
     @Slot()
     def beginNewTask(self):
@@ -275,6 +293,11 @@ class AppViewModel(QAbstractListModel):
     def undo(self):
         if self.undo_service.undo(): self._tell("Action undone")
 
+    @Slot()
+    def clearMessage(self):
+        if self._message:
+            self._tell("")
+
     @Slot(str)
     def openDetail(self, task_id): self._selected = self.repository.get(task_id); self.detailChanged.emit()
     @Slot()
@@ -303,8 +326,14 @@ class AppViewModel(QAbstractListModel):
     @Slot()
     def refresh(self):
         tasks, day = self.repository.all(), date.today()
+        today_result = (
+            task_queries.overdue(tasks, day)
+            + task_queries.today(tasks, day)
+            + task_queries.due_soon(tasks, day)
+        )
+        self.today_model.reset_tasks(list({task.id: task for task in today_result}.values()))
         if self._view == "inbox": result = task_queries.inbox(tasks)
-        elif self._view == "today": result = task_queries.overdue(tasks, day) + task_queries.today(tasks, day) + task_queries.due_soon(tasks, day)
+        elif self._view == "today": result = today_result
         elif self._view == "month": result = task_queries.month(tasks, self._month)
         elif self._view == "completed": result = task_queries.completed(tasks)
         elif self._view == "search": result = task_queries.search(tasks, self._query)

@@ -12,6 +12,7 @@ ColumnLayout {
     property var viewModel
     property string errorText: ""
     property string pickerObjectName: ""
+    readonly property bool narrow: width < 340
     readonly property bool popupOpen: calendar.opened
     signal normalized(string isoDate)
     signal popupOpening()
@@ -41,12 +42,16 @@ ColumnLayout {
         input.text = ""; errorText = ""; normalized("")
     }
 
-    RowLayout {
-        Layout.fillWidth: true; spacing: Theme.s4
+    GridLayout {
+        Layout.fillWidth: true
+        columns: control.narrow ? 2 : 3
+        columnSpacing: Theme.s4
+        rowSpacing: Theme.s4
         PourTextField {
             id: input
             objectName: control.objectName + "Input"
             Layout.fillWidth: true
+            Layout.columnSpan: control.narrow ? 2 : 1
             error: control.errorText.length > 0
             selectByMouse: true
             onTextEdited: control.errorText = ""
@@ -74,8 +79,10 @@ ColumnLayout {
             }
         }
         PourButton {
+            objectName: control.objectName + "ClearButton"
             visible: control.text.length > 0 && !control.readOnly
             text: "Clear"
+            Layout.fillWidth: control.narrow
             onClicked: control.clearValue()
         }
     }

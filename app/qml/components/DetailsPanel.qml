@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
 
@@ -9,11 +10,28 @@ Rectangle {
     property bool creating: Boolean(viewModel && viewModel.isCreating)
     readonly property bool popupOpen: editor.popupOpen
     readonly property bool hasTask: Boolean(task && task.id)
+    signal collapseRequested()
     color: Theme.surface
 
     ColumnLayout {
         anchors.fill: parent; anchors.margins: Theme.s24; spacing: Theme.s12
-        Text { text: panel.creating ? "New Task" : "Task Details"; color: Theme.text; font.pixelSize: 18; font.weight: Font.DemiBold }
+        RowLayout {
+            Layout.fillWidth: true
+            Text {
+                text: panel.creating ? "New Task" : "Task Details"
+                color: Theme.text
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
+            PourButton {
+                objectName: "collapseEditorButton"
+                text: "›"
+                ToolTip.text: "Collapse task details"
+                onClicked: panel.collapseRequested()
+            }
+        }
         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
         Item {
             visible: !panel.hasTask && !panel.creating; Layout.fillWidth: true; Layout.fillHeight: true

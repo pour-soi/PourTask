@@ -8,7 +8,14 @@ DEFAULTS = {
     "launch_at_startup": False,
     "widget_enabled": False,
     "window_geometry": None,
+    "window_maximized": False,
+    "main_splitters": None,
+    "editor_collapsed": False,
     "widget_geometry": None,
+    "widget_compact": False,
+    "widget_expanded_size": {"width": 260, "height": 180},
+    "widget_always_on_top": False,
+    "widget_lock_position": False,
 }
 
 

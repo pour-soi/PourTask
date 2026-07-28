@@ -11,11 +11,12 @@ Rectangle {
     required property string dateKind
     required property string warning
     property bool selected: false
+    property bool compact: false
     signal toggled(bool completed)
     signal opened()
 
     width: ListView.view.width
-    height: Theme.taskRowHeight
+    height: compact ? 44 : Theme.taskRowHeight
     radius: Theme.rControl
     color: selected ? Theme.accentDim : (mouse.containsMouse ? Theme.hover : Theme.surface)
     border.width: selected ? 1 : 0
@@ -25,19 +26,24 @@ Rectangle {
     Behavior on opacity { NumberAnimation { duration: Theme.normal } }
 
     RowLayout {
-        anchors.fill: parent; anchors.margins: Theme.s12; spacing: Theme.s12
+        anchors.fill: parent
+        anchors.margins: row.compact ? Theme.s8 : Theme.s12
+        spacing: row.compact ? Theme.s8 : Theme.s12
         TaskCheckBox {
             checked: row.completed
             onToggled: row.toggled(checked)
             Accessible.name: (checked ? "Restore " : "Complete ") + row.title
         }
         ColumnLayout {
-            Layout.fillWidth: true; spacing: Theme.s8
+            Layout.fillWidth: true
+            spacing: row.compact ? 0 : Theme.s8
             Text {
                 text: row.title; color: Theme.text; font.pixelSize: Theme.taskTitle; font.weight: Font.DemiBold
                 font.strikeout: row.completed; elide: Text.ElideRight; Layout.fillWidth: true
+                maximumLineCount: row.compact ? 1 : 2
             }
             RowLayout {
+                visible: !row.compact
                 spacing: Theme.s8
                 Rectangle {
                     visible: row.warning.length > 0
@@ -50,7 +56,9 @@ Rectangle {
         }
     }
     MouseArea {
-        id: mouse; anchors.fill: parent; anchors.leftMargin: 52
+        id: mouse
+        anchors.fill: parent
+        anchors.leftMargin: row.compact ? 42 : 52
         hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: row.opened()
     }
 }

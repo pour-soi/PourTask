@@ -114,9 +114,11 @@ Item {
                 onManuallyEdited: editor.assignedMonthManual = true
             }
             RowLayout {
-                Layout.fillWidth: true; Layout.topMargin: Theme.s8; spacing: Theme.s8
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.s8
+                spacing: Theme.s8
                 PrimaryButton {
-                    objectName: editor.creating ? "saveTaskButton" : "saveChangesButton"
+                    objectName: "saveTaskButton"
                     visible: !editor.completed
                     text: editor.creating ? "Save Task" : "Save"
                     iconName: "completed"; onClicked: editor.save()
