@@ -4,7 +4,7 @@ This feature branch is a test-only PourUpgrade integration. It does not enable u
 
 ## Verified architecture and storage
 
-PourTask is a Python/PySide6 Qt Quick application packaged by PyInstaller. SQLite writes are transactional and occur through the repository layer. Settings are atomically replaced JSON. Stable data remains under `%LOCALAPPDATA%\PourTask`: `data\pourtask.db` is protected task data, `backups\` is protected user data, and `settings.json` is protected preferences/session state. `logs\` is diagnostic and disposable. There is no separate helper process.
+PourTask is a Python/PySide6 Qt Quick application packaged by PyInstaller. SQLite writes are transactional and occur through the repository layer. Settings are atomically replaced JSON. Stable data remains under `%LOCALAPPDATA%\PourTask`: schema location `database` protects `data\`, `local-data` protects `backups\`, and `settings` protects `settings.json`. `logs\` is diagnostic and disposable. There is no separate helper process.
 
 The stable Inno Setup installer is per-user (`PrivilegesRequired=lowest`) at `%LOCALAPPDATA%\Programs\PourTask`. It has stable AppId `{B9ED315F-7DE7-43FA-8B85-7B1FF1ED64A5}` and must not be used for Phase 4. `PourTask.Phase4.iss` provides a separate test AppId, install root, display name, marker, shortcut, and uninstall identity. It does not write stable startup settings.
 

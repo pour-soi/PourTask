@@ -41,9 +41,9 @@ def phase4_registration(executable: Path, data_root: Path, version: str) -> Regi
         PHASE4_APP_ID, "PourTask Phase 4 Test", "Pour", version, "per-user",
         "pour-soi", "PourUpgrade-TestRelease", "phase4-test", str(executable.parent),
         {"relativePath": executable.name, "publisher": "Pour", "identity": "PourTask"},
-        [], {"task-data": str((data_root / "data").resolve()),
-             "backups": str((data_root / "backups").resolve()),
-             "preferences": str((data_root / "settings.json").resolve())},
+        [], {"database": str((data_root / "data").resolve()),
+             "local-data": str((data_root / "backups").resolve()),
+             "settings": str((data_root / "settings.json").resolve())},
         ["foreground", "tray", "none"], PHASE4_PROTOCOL_ID,
     )
 
