@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,11 @@ class AppPaths:
 
     @classmethod
     def default(cls) -> "AppPaths":
+        if os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv:
+            root = os.environ.get("POURTASK_PHASE4_DATA_ROOT") or str(
+                Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "PourTask-Phase4"
+            )
+            return cls(Path(root).resolve())
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
         return cls(base / "PourTask")
 

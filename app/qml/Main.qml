@@ -508,6 +508,24 @@ ApplicationWindow {
                                         }
                                     }
                                 }
+                                SettingsSection {
+                                    objectName: "updateSettingsSection"
+                                    title: "UPDATES (PHASE 4 TEST)"
+                                    description: "PourUpgrade handles update checks. This integration is not production-ready."
+                                    PourButton {
+                                        objectName: "checkForUpdatesButton"
+                                        text: "Check for updates"
+                                        onClicked: settingsViewModel.checkForUpdates()
+                                    }
+                                    Text {
+                                        visible: settingsViewModel.updateStatus !== ""
+                                        text: settingsViewModel.updateStatus
+                                        color: Theme.secondary
+                                        font.pixelSize: Theme.metadata
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                    }
+                                }
                                 RowLayout {
                                     Layout.leftMargin: Theme.s4
                                     Layout.bottomMargin: Theme.s8

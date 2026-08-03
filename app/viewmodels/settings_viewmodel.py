@@ -4,19 +4,31 @@ from PySide6.QtCore import QObject, Property, Signal, Slot
 
 from app.platform.startup import StartupError, StartupService
 from app.settings import Settings
+from app.update_integration import UpdaterLauncher
 
 
 class SettingsViewModel(QObject):
     changed = Signal()
     showWidgetRequested = Signal()
     resetWidgetRequested = Signal()
+    updateStatusChanged = Signal()
 
-    def __init__(self, settings: Settings, executable: Path, startup_service=None):
+    def __init__(self, settings: Settings, executable: Path, startup_service=None, updater_launcher=None):
         super().__init__()
         self.settings = settings
         self.executable = executable
         self.startup_service = startup_service or StartupService(executable)
         self._startup_error = ""
+        self.updater_launcher = updater_launcher or UpdaterLauncher()
+        self._update_status = ""
+
+    @Property(str, notify=updateStatusChanged)
+    def updateStatus(self): return self._update_status
+
+    @Slot()
+    def checkForUpdates(self):
+        _, self._update_status = self.updater_launcher.launch_for_pourtask()
+        self.updateStatusChanged.emit()
 
     @Property(bool, notify=changed)
     def launchAtStartup(self):

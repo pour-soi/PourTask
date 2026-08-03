@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupService
 from app.platform.tray import create_tray
 from app.platform.window_geometry import visible_geometry
+from app.update_integration import UpdatePipeServer, health_report, register_test_installation, send_health, test_mode
 
 
 def _screen_work_areas():
@@ -56,11 +58,12 @@ def run() -> int:
     if icon.isNull():
         logging.error("Application icon could not be loaded from %s", icon_path)
     app.setWindowIcon(icon)
-    startup_launch = "--startup" in sys.argv
+    startup_launch = "--startup" in sys.argv or "--pourupgrade-tray" in sys.argv
     instance_guard = SingleInstanceGuard()
     if not instance_guard.acquire(startup_launch):
         return 0
     paths = AppPaths.default(); paths.ensure(); configure_logging(paths.logs)
+    register_test_installation(Path(sys.executable), paths.root, __version__)
     settings = Settings(paths.settings)
     try:
         repository = TaskRepository(Database(paths.database))
@@ -261,4 +264,16 @@ def run() -> int:
             }
         settings.save()
     app.aboutToQuit.connect(persist_geometry)
+    control_server = None
+    if test_mode() and os.environ.get("POURTASK_PHASE4_CONTROL_PIPE"):
+        control_server = UpdatePipeServer(
+            os.environ["POURTASK_PHASE4_CONTROL_PIPE"], pending_edits=lambda: view_model.detailOpen,
+            save_state=lambda: (persist_geometry() is None), quit_app=app.quit, parent=app,
+        )
+    health_pipe = os.environ.get("POURTASK_PHASE4_HEALTH_PIPE") if test_mode() else None
+    if health_pipe:
+        mode = "tray" if startup_launch else "foreground"
+        report = health_report(__version__, mode, True, os.environ.get("POURTASK_PHASE4_ATTEMPT_ID", ""),
+                               os.environ.get("POURTASK_PHASE4_REQUEST_ID", ""))
+        QTimer.singleShot(0, lambda: send_health(health_pipe, report))
     return app.exec()

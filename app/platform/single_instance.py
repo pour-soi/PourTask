@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import sys
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
@@ -7,9 +10,10 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 class SingleInstanceGuard(QObject):
     activateRequested = Signal()
 
-    def __init__(self, name: str = "PourTask.SingleInstance"):
+    def __init__(self, name: str | None = None):
         super().__init__()
-        self.name = name
+        test_identity = os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv
+        self.name = name or ("PourTask.Phase4.SingleInstance" if test_identity else "PourTask.SingleInstance")
         self.server = QLocalServer(self)
         self._connections = []
         self._client_socket = None

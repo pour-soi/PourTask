@@ -1,8 +1,15 @@
 from pathlib import Path
+import os
 import re
 
 project = Path(SPECPATH).parent
-version = (project / "VERSION").read_text(encoding="utf-8").strip()
+version_source = project / "VERSION"
+version = version_source.read_text(encoding="utf-8").strip()
+if os.environ.get("POURTASK_PHASE4_BUILD") == "1":
+    version = os.environ.get("POURTASK_PHASE4_VERSION", "")
+    version_source = project / "build" / "phase4" / "VERSION"
+    version_source.parent.mkdir(parents=True, exist_ok=True)
+    version_source.write_text(version, encoding="utf-8")
 match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?", version)
 if not match:
     raise ValueError(f"Unsupported PourTask version: {version}")
@@ -53,7 +60,7 @@ a = Analysis(
         (str(project / "app" / "qml"), "app/qml"),
         (str(project / "app" / "database" / "schema.sql"), "app/database"),
         (str(project / "assets" / "icons"), "assets/icons"),
-        (str(project / "VERSION"), "."),
+        (str(version_source), "."),
     ],
     hiddenimports=[],
     hookspath=[],
