@@ -17,6 +17,10 @@ PHASE4_PROTOCOL_ID = "pourtask-phase4-v1"
 MAX_MESSAGE_BYTES = 16 * 1024
 
 
+def phase4_local_appdata() -> Path:
+    return Path(os.environ.get("USERPROFILE", Path.home())) / "AppData" / "Local"
+
+
 @dataclass(frozen=True)
 class Registration:
     appId: str
@@ -72,7 +76,9 @@ class RegistrationStore:
 
 class UpdaterLauncher:
     def __init__(self, executable: Path | None = None, runner=subprocess.Popen):
-        default = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "PourUpgrade" / "PourUpgrade.exe"
+        package = "PourUpgrade-Phase4" if test_mode() else "PourUpgrade"
+        base = phase4_local_appdata() if test_mode() else Path(os.environ.get("LOCALAPPDATA", ""))
+        default = base / "Programs" / package / "PourUpgrade.exe"
         self.executable, self.runner = Path(executable or default), runner
 
     def launch_for_pourtask(self) -> tuple[bool, str]:
@@ -126,14 +132,15 @@ def health_report(version: str, launch_mode: str, state_restored: bool,
 
 
 def test_mode() -> bool:
-    return os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv
+    marker = Path(sys.executable).resolve().parent / ".pourtask-phase4-installed"
+    return os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv or marker.is_file()
 
 
 def register_test_installation(executable: Path, data_root: Path, version: str) -> Path | None:
     if not test_mode() or not (executable.parent / ".pourtask-phase4-installed").is_file():
         return None
     registration_root = os.environ.get("POURUPGRADE_REGISTRATION_ROOT") or str(
-        Path(os.environ.get("LOCALAPPDATA", "")) / "PourUpgrade" / "registrations-test"
+        phase4_local_appdata() / "PourUpgrade" / "registrations-test"
     )
     path = Path(registration_root).resolve() / f"{PHASE4_APP_ID}.json"
     RegistrationStore(path).write(phase4_registration(executable, data_root, version))

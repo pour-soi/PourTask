@@ -24,7 +24,7 @@ from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupService
 from app.platform.tray import create_tray
 from app.platform.window_geometry import visible_geometry
-from app.update_integration import UpdatePipeServer, health_report, register_test_installation, send_health, test_mode
+from app.update_integration import PHASE4_PROTOCOL_ID, UpdatePipeServer, health_report, register_test_installation, send_health, test_mode
 
 
 def _screen_work_areas():
@@ -265,9 +265,10 @@ def run() -> int:
         settings.save()
     app.aboutToQuit.connect(persist_geometry)
     control_server = None
-    if test_mode() and os.environ.get("POURTASK_PHASE4_CONTROL_PIPE"):
+    control_pipe = os.environ.get("POURTASK_PHASE4_CONTROL_PIPE") or (PHASE4_PROTOCOL_ID if test_mode() else None)
+    if control_pipe:
         control_server = UpdatePipeServer(
-            os.environ["POURTASK_PHASE4_CONTROL_PIPE"], pending_edits=lambda: view_model.detailOpen,
+            control_pipe, pending_edits=lambda: view_model.detailOpen,
             save_state=lambda: (persist_geometry() is None), quit_app=app.quit, parent=app,
         )
     health_pipe = os.environ.get("POURTASK_PHASE4_HEALTH_PIPE") if test_mode() else None

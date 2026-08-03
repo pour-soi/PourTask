@@ -1,6 +1,8 @@
 import base64
 import json
+import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -46,6 +48,14 @@ def test_installed_test_registration_is_isolated(monkeypatch, tmp_path):
     assert path and PHASE4_APP_ID in path.name
 
 
+def test_installed_marker_enables_test_mode_without_command_line(monkeypatch, tmp_path):
+    executable = tmp_path / "phase4" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
+    (executable.parent / ".pourtask-phase4-installed").touch(); monkeypatch.setattr("sys.executable", str(executable))
+    from app.update_integration import test_mode
+    assert test_mode()
+    assert AppPaths.default().root == (Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "PourTask-Phase4").resolve()
+
+
 def test_test_paths_use_explicit_isolated_root(monkeypatch, tmp_path):
     monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
     monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(tmp_path)); assert AppPaths.default().root == tmp_path.resolve()
@@ -53,6 +63,11 @@ def test_test_paths_use_explicit_isolated_root(monkeypatch, tmp_path):
 
 def test_updater_missing_is_safe(tmp_path):
     assert UpdaterLauncher(tmp_path / "missing.exe").launch_for_pourtask()[0] is False
+
+
+def test_phase4_launcher_uses_only_isolated_coordinator_package(monkeypatch):
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    assert "PourUpgrade-Phase4" in str(UpdaterLauncher().executable)
 
 
 def test_update_entry_uses_only_fixed_app_identity(tmp_path):

@@ -12,10 +12,10 @@ class AppPaths:
 
     @classmethod
     def default(cls) -> "AppPaths":
-        if os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv:
-            root = os.environ.get("POURTASK_PHASE4_DATA_ROOT") or str(
-                Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "PourTask-Phase4"
-            )
+        installed_test_marker = (Path(sys.executable).resolve().parent / ".pourtask-phase4-installed").is_file()
+        if os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv or installed_test_marker:
+            profile = Path(os.environ.get("USERPROFILE", Path.home()))
+            root = os.environ.get("POURTASK_PHASE4_DATA_ROOT") or str(profile / "AppData" / "Local" / "PourTask-Phase4")
             return cls(Path(root).resolve())
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
         return cls(base / "PourTask")
