@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -54,6 +55,39 @@ def test_installed_marker_enables_test_mode_without_command_line(monkeypatch, tm
     from app.update_integration import test_mode
     assert test_mode()
     assert AppPaths.default().root == (Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "PourTask-Phase4").resolve()
+
+
+def test_marker_absent_uses_only_stable_root(monkeypatch, tmp_path):
+    executable = tmp_path / "stable" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
+    stable_base = tmp_path / "local"; monkeypatch.setenv("LOCALAPPDATA", str(stable_base))
+    monkeypatch.delenv("POURTASK_PHASE4_TEST", raising=False); monkeypatch.delenv("POURTASK_PHASE4_DATA_ROOT", raising=False)
+    monkeypatch.setattr(sys, "executable", str(executable)); monkeypatch.setattr(sys, "argv", [str(executable)])
+    from app.update_integration import test_mode
+    assert not test_mode()
+    assert AppPaths.default().root == stable_base / "PourTask"
+
+
+def test_phase4_command_line_centralizes_all_storage_paths(monkeypatch, tmp_path):
+    root = tmp_path / "isolated"; monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(root))
+    monkeypatch.setattr(sys, "argv", ["PourTask.exe", "--pourupgrade-phase4-test", "--startup"])
+    from app.update_integration import test_mode
+    paths = AppPaths.default()
+    assert test_mode() and paths.root == root.resolve()
+    assert {paths.data, paths.database, paths.backups, paths.logs, paths.settings} == {
+        paths.root / "data", paths.root / "data" / "pourtask.db", paths.root / "backups",
+        paths.root / "logs", paths.root / "settings.json",
+    }
+
+
+@pytest.mark.parametrize("argument", ["--startup", "--pourupgrade-tray"])
+def test_stable_restart_arguments_do_not_enable_phase4(monkeypatch, tmp_path, argument):
+    executable = tmp_path / "stable" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
+    stable_base = tmp_path / "local"; monkeypatch.setenv("LOCALAPPDATA", str(stable_base))
+    monkeypatch.delenv("POURTASK_PHASE4_TEST", raising=False); monkeypatch.setattr(sys, "executable", str(executable))
+    monkeypatch.setattr(sys, "argv", [str(executable), argument])
+    from app.update_integration import test_mode
+    assert not test_mode()
+    assert AppPaths.default().root == stable_base / "PourTask"
 
 
 def test_test_paths_use_explicit_isolated_root(monkeypatch, tmp_path):

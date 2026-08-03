@@ -6,16 +6,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def phase4_local_appdata() -> Path:
+    return Path(os.environ.get("USERPROFILE", Path.home())) / "AppData" / "Local"
+
+
+def phase4_test_mode() -> bool:
+    marker = Path(sys.executable).resolve().parent / ".pourtask-phase4-installed"
+    return os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv or marker.is_file()
+
+
 @dataclass(frozen=True)
 class AppPaths:
     root: Path
 
     @classmethod
     def default(cls) -> "AppPaths":
-        installed_test_marker = (Path(sys.executable).resolve().parent / ".pourtask-phase4-installed").is_file()
-        if os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv or installed_test_marker:
-            profile = Path(os.environ.get("USERPROFILE", Path.home()))
-            root = os.environ.get("POURTASK_PHASE4_DATA_ROOT") or str(profile / "AppData" / "Local" / "PourTask-Phase4")
+        if phase4_test_mode():
+            root = os.environ.get("POURTASK_PHASE4_DATA_ROOT") or str(phase4_local_appdata() / "PourTask-Phase4")
             return cls(Path(root).resolve())
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
         return cls(base / "PourTask")

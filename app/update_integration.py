@@ -11,14 +11,11 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
+from app.paths import phase4_local_appdata, phase4_test_mode
 
 PHASE4_APP_ID = "com.pour.pourtask.phase4"
 PHASE4_PROTOCOL_ID = "pourtask-phase4-v1"
 MAX_MESSAGE_BYTES = 16 * 1024
-
-
-def phase4_local_appdata() -> Path:
-    return Path(os.environ.get("USERPROFILE", Path.home())) / "AppData" / "Local"
 
 
 @dataclass(frozen=True)
@@ -132,8 +129,7 @@ def health_report(version: str, launch_mode: str, state_restored: bool,
 
 
 def test_mode() -> bool:
-    marker = Path(sys.executable).resolve().parent / ".pourtask-phase4-installed"
-    return os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv or marker.is_file()
+    return phase4_test_mode()
 
 
 def register_test_installation(executable: Path, data_root: Path, version: str) -> Path | None:
