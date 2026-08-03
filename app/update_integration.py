@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
-from app.paths import phase4_local_appdata, phase4_test_mode
+from app.paths import phase4_local_appdata, phase4_test_mode, stage43_stable_fixture_mode
 
 PHASE4_APP_ID = "com.pour.pourtask.phase4"
 PHASE4_PROTOCOL_ID = "pourtask-phase4-v1"
@@ -79,6 +79,8 @@ class UpdaterLauncher:
         self.executable, self.runner = Path(executable or default), runner
 
     def launch_for_pourtask(self) -> tuple[bool, str]:
+        if stage43_stable_fixture_mode():
+            return False, "Updates are disabled for the isolated Stable Fixture."
         if not self.executable.is_file():
             return False, "PourUpgrade is not installed or is unavailable."
         self.runner([str(self.executable), "--focus-app", PHASE4_APP_ID], cwd=str(self.executable.parent))

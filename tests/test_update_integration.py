@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from app.paths import AppPaths
+from app.platform.single_instance import SingleInstanceGuard
 from app.update_integration import (
     MAX_MESSAGE_BYTES, PHASE4_APP_ID, PHASE4_PROTOCOL_ID, RegistrationStore,
     ShutdownRequestValidator, UpdaterLauncher, health_report, phase4_registration,
@@ -65,6 +66,24 @@ def test_marker_absent_uses_only_stable_root(monkeypatch, tmp_path):
     from app.update_integration import test_mode
     assert not test_mode()
     assert AppPaths.default().root == stable_base / "PourTask"
+
+
+def test_stage43_stable_fixture_has_distinct_root_and_instance(monkeypatch, tmp_path):
+    executable = tmp_path / "stable-fixture" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
+    (executable.parent / ".pourtask-stage43-stable-fixture").touch()
+    profile = tmp_path / "profile"; monkeypatch.setenv("USERPROFILE", str(profile))
+    monkeypatch.delenv("POURTASK_PHASE4_TEST", raising=False); monkeypatch.setattr(sys, "executable", str(executable))
+    monkeypatch.setattr(sys, "argv", [str(executable), "--stage43-stable-fixture"])
+    paths = AppPaths.default()
+    assert paths.root == (profile / "AppData" / "Local" / "PourTask-Stage43-StableFixture").resolve()
+    assert SingleInstanceGuard().name == "PourTask.Stage43StableFixture.SingleInstance"
+    assert paths.root != (profile / "AppData" / "Local" / "PourTask").resolve()
+
+
+def test_stage43_stable_fixture_cannot_launch_an_updater(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["PourTask.exe", "--stage43-stable-fixture"])
+    launched, message = UpdaterLauncher().launch_for_pourtask()
+    assert not launched and "disabled" in message
 
 
 def test_phase4_command_line_centralizes_all_storage_paths(monkeypatch, tmp_path):

@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 from uuid import uuid4
 
 import pytest
@@ -114,3 +115,31 @@ def test_installer_marks_installed_build_and_removes_startup_value():
     assert "uninsdeletevalue" in installer
     assert "Root: HKCU" in installer
     assert "Root: HKLM" not in installer
+
+
+@pytest.mark.parametrize(
+    "argument,marker,value_name",
+    [
+        ("--stage43-stable-fixture", ".pourtask-stage43-stable-fixture", "PourTask Stage43 Stable Fixture"),
+        ("--pourupgrade-phase4-test", ".pourtask-phase4-installed", "PourTask Phase4 Beta Fixture"),
+    ],
+)
+def test_fixture_startup_identity_is_separate(monkeypatch, tmp_path, argument, marker, value_name):
+    executable = tmp_path / value_name / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
+    (executable.parent / marker).touch(); monkeypatch.setattr(sys, "executable", str(executable))
+    monkeypatch.setattr(sys, "argv", [str(executable), argument])
+    startup = StartupService(executable, provider=FakeRunProvider(), platform_name="win32")
+    assert startup.supported and startup.value_name == value_name
+    assert startup.command == f'"{executable.resolve()}" {argument} --startup'
+
+
+def test_stage43_fixture_installers_are_per_user_and_remove_only_fixture_startup_values():
+    root = Path(__file__).parents[1] / "packaging"
+    stable_fixture = (root / "PourTask.Stage43StableFixture.iss").read_text(encoding="utf-8")
+    beta_fixture = (root / "PourTask.Phase4.iss").read_text(encoding="utf-8")
+    assert "PrivilegesRequired=lowest" in stable_fixture and "PrivilegesRequired=lowest" in beta_fixture
+    assert "CE634188-5D2E-4DC9-85EB-851060BB6092" in stable_fixture
+    assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" in beta_fixture
+    assert 'ValueName: "PourTask Stage43 Stable Fixture"' in stable_fixture
+    assert 'ValueName: "PourTask Phase4 Beta Fixture"' in beta_fixture
+    assert "Root: HKLM" not in stable_fixture and "Root: HKLM" not in beta_fixture

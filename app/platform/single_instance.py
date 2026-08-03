@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import os
-import sys
-
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
+from app.paths import phase4_test_mode, stage43_stable_fixture_mode
 
 
 class SingleInstanceGuard(QObject):
@@ -12,8 +10,12 @@ class SingleInstanceGuard(QObject):
 
     def __init__(self, name: str | None = None):
         super().__init__()
-        test_identity = os.environ.get("POURTASK_PHASE4_TEST") == "1" or "--pourupgrade-phase4-test" in sys.argv
-        self.name = name or ("PourTask.Phase4.SingleInstance" if test_identity else "PourTask.SingleInstance")
+        identity = (
+            "PourTask.Stage43StableFixture.SingleInstance" if stage43_stable_fixture_mode()
+            else "PourTask.Phase4.SingleInstance" if phase4_test_mode()
+            else "PourTask.SingleInstance"
+        )
+        self.name = name or identity
         self.server = QLocalServer(self)
         self._connections = []
         self._client_socket = None

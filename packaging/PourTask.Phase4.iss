@@ -40,6 +40,9 @@ SetupIconFile=..\assets\icons\PourTask.ico
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "installed.marker"; DestDir: "{app}"; DestName: ".pourtask-phase4-installed"; Attribs: hidden; Flags: ignoreversion
 
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "PourTask Phase4 Beta Fixture"; Flags: uninsdeletevalue dontcreatekey
+
 [Icons]
 Name: "{autoprograms}\PourTask Phase 4 Test"; Filename: "{app}\PourTask.exe"; Parameters: "--pourupgrade-phase4-test --pourupgrade-tray"
 

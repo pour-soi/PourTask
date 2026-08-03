@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from app import __version__
 from app.database import Database, TaskRepository
 from app.logging_config import configure_logging
-from app.paths import AppPaths
+from app.paths import AppPaths, phase4_test_mode, stage43_stable_fixture_mode
 from app.settings import Settings
 from app.strings import STRINGS
 from app.viewmodels import AppViewModel
@@ -46,7 +46,12 @@ def _resource_path(relative: str) -> Path:
 
 def _set_windows_app_id() -> None:
     if sys.platform == "win32":
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Pour.PourTask")
+        identity = (
+            "Pour.PourTask.Stage43StableFixture" if stage43_stable_fixture_mode()
+            else "Pour.PourTask.Phase4" if phase4_test_mode()
+            else "Pour.PourTask"
+        )
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(identity)
 
 
 def run() -> int:

@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from app.paths import phase4_test_mode, stage43_stable_fixture_mode
+
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 VALUE_NAME = "PourTask"
 INSTALLED_MARKER = ".pourtask-installed"
@@ -13,12 +15,15 @@ class StartupError(RuntimeError):
 
 
 class WindowsRunProvider:
+    def __init__(self, value_name: str = VALUE_NAME):
+        self.value_name = value_name
+
     def read(self) -> str | None:
         import winreg
 
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
-                return str(winreg.QueryValueEx(key, VALUE_NAME)[0])
+                return str(winreg.QueryValueEx(key, self.value_name)[0])
         except FileNotFoundError:
             return None
 
@@ -28,7 +33,7 @@ class WindowsRunProvider:
         with winreg.CreateKeyEx(
             winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE
         ) as key:
-            winreg.SetValueEx(key, VALUE_NAME, 0, winreg.REG_SZ, command)
+            winreg.SetValueEx(key, self.value_name, 0, winreg.REG_SZ, command)
 
     def remove(self) -> None:
         import winreg
@@ -37,7 +42,7 @@ class WindowsRunProvider:
             with winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE
             ) as key:
-                winreg.DeleteValue(key, VALUE_NAME)
+                winreg.DeleteValue(key, self.value_name)
         except FileNotFoundError:
             pass
 
@@ -53,13 +58,28 @@ class StartupService:
     ):
         self.executable = Path(executable).resolve()
         self.platform_name = platform_name or sys.platform
+        self.fixture_argument = (
+            "--stage43-stable-fixture" if stage43_stable_fixture_mode()
+            else "--pourupgrade-phase4-test" if phase4_test_mode()
+            else ""
+        )
+        self.value_name = (
+            "PourTask Stage43 Stable Fixture" if stage43_stable_fixture_mode()
+            else "PourTask Phase4 Beta Fixture" if phase4_test_mode()
+            else VALUE_NAME
+        )
+        installed_marker = (
+            ".pourtask-stage43-stable-fixture" if stage43_stable_fixture_mode()
+            else ".pourtask-phase4-installed" if phase4_test_mode()
+            else INSTALLED_MARKER
+        )
         self.installed = (
-            (self.executable.parent / INSTALLED_MARKER).is_file()
+            (self.executable.parent / installed_marker).is_file()
             if installed is None
             else installed
         )
         self.provider = provider or (
-            WindowsRunProvider() if self.platform_name == "win32" else None
+            WindowsRunProvider(self.value_name) if self.platform_name == "win32" else None
         )
 
     @property
@@ -76,7 +96,8 @@ class StartupService:
 
     @property
     def command(self) -> str:
-        return f'"{self.executable}" --startup'
+        argument = f" {self.fixture_argument}" if self.fixture_argument else ""
+        return f'"{self.executable}"{argument} --startup'
 
     def is_enabled(self) -> bool:
         if not self.supported:
