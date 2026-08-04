@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -16,6 +17,8 @@ from app.paths import phase4_local_appdata, phase4_test_mode, stage43_stable_fix
 PHASE4_APP_ID = "com.pour.pourtask.phase4"
 PHASE4_PROTOCOL_ID = "pourtask-phase4-v1"
 MAX_MESSAGE_BYTES = 16 * 1024
+HEALTH_PIPE_PATTERN = re.compile(r"^pourtask-phase4-health-[0-9a-f]{32}$")
+OPAQUE_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,35 @@ class Registration:
     protectedRootMappings: dict
     restartCapabilities: list
     protocolIdentity: str
+
+
+@dataclass(frozen=True)
+class HealthConfiguration:
+    pipe_name: str
+    attempt_id: str
+    request_id: str
+    expires_at: datetime
+
+    @classmethod
+    def from_environment(cls, environment=None, *, now: datetime | None = None):
+        environment = os.environ if environment is None else environment
+        now = now or datetime.now(timezone.utc)
+        pipe_name = environment.get("POURTASK_PHASE4_HEALTH_PIPE", "")
+        attempt_id = environment.get("POURTASK_PHASE4_ATTEMPT_ID", "")
+        request_id = environment.get("POURTASK_PHASE4_REQUEST_ID", "")
+        if environment.get("POURTASK_PHASE4_PROTOCOL_ID") != PHASE4_PROTOCOL_ID:
+            return None
+        if not HEALTH_PIPE_PATTERN.fullmatch(pipe_name):
+            return None
+        if not OPAQUE_ID_PATTERN.fullmatch(attempt_id) or not OPAQUE_ID_PATTERN.fullmatch(request_id):
+            return None
+        try:
+            expires_at = datetime.fromisoformat(environment.get("POURTASK_PHASE4_HEALTH_EXPIRES_AT", "").replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if expires_at.tzinfo is None or expires_at <= now or (expires_at - now).total_seconds() > 60:
+            return None
+        return cls(pipe_name, attempt_id, request_id, expires_at)
 
 
 def phase4_registration(executable: Path, data_root: Path, version: str) -> Registration:
@@ -124,10 +156,11 @@ def prepare_shutdown(request: dict, *, pending_edits: bool, save_state) -> dict:
 
 
 def health_report(version: str, launch_mode: str, state_restored: bool,
-                  attempt_id: str, request_id: str) -> dict:
-    return {"appId": PHASE4_APP_ID, "runningVersion": version, "launchMode": launch_mode,
+                  attempt_id: str, request_id: str, process_id: int | None = None) -> dict:
+    return {"protocolIdentity": PHASE4_PROTOCOL_ID, "appId": PHASE4_APP_ID,
+            "runningVersion": version, "launchMode": launch_mode,
             "stateRestored": bool(state_restored), "processIdentity": "PourTask",
-            "attemptId": attempt_id, "requestId": request_id}
+            "processId": process_id or os.getpid(), "attemptId": attempt_id, "requestId": request_id}
 
 
 def test_mode() -> bool:
@@ -187,6 +220,29 @@ class UpdatePipeServer(QObject):
 
 def send_health(pipe_name: str, report: dict) -> bool:
     socket = QLocalSocket(); socket.connectToServer(pipe_name)
-    if not socket.waitForConnected(1000): return False
-    socket.write(_frame(report)); socket.flush(); sent = socket.waitForBytesWritten(1000); socket.disconnectFromServer()
+    if not socket.waitForConnected(100): return False
+    frame = _frame(report); written = socket.write(frame); socket.flush()
+    sent = written == len(frame) and (socket.bytesToWrite() == 0 or socket.waitForBytesWritten(250))
+    socket.disconnectFromServer()
     return sent
+
+
+class HealthSender(QObject):
+    def __init__(self, configuration: HealthConfiguration, report: dict, *, sender=send_health,
+                 clock=lambda: datetime.now(timezone.utc), parent=None):
+        super().__init__(parent)
+        self.configuration, self.report, self.sender, self.clock = configuration, report, sender, clock
+        self.started = self.sent = False
+
+    def start(self) -> None:
+        if self.started:
+            return
+        self.started = True
+        QTimer.singleShot(0, self._attempt)
+
+    def _attempt(self) -> None:
+        if self.sent or self.clock() >= self.configuration.expires_at:
+            return
+        self.sent = bool(self.sender(self.configuration.pipe_name, self.report))
+        if not self.sent:
+            QTimer.singleShot(100, self._attempt)

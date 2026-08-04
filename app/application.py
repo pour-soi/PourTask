@@ -24,7 +24,7 @@ from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupService
 from app.platform.tray import create_tray
 from app.platform.window_geometry import visible_geometry
-from app.update_integration import PHASE4_PROTOCOL_ID, UpdatePipeServer, health_report, register_test_installation, send_health, test_mode
+from app.update_integration import HealthConfiguration, HealthSender, PHASE4_PROTOCOL_ID, UpdatePipeServer, health_report, register_test_installation, test_mode
 
 
 def _screen_work_areas():
@@ -276,10 +276,12 @@ def run() -> int:
             control_pipe, pending_edits=lambda: view_model.detailOpen,
             save_state=lambda: (persist_geometry() is None), quit_app=app.quit, parent=app,
         )
-    health_pipe = os.environ.get("POURTASK_PHASE4_HEALTH_PIPE") if test_mode() else None
-    if health_pipe:
+    health_configuration = HealthConfiguration.from_environment() if test_mode() else None
+    health_sender = None
+    if health_configuration:
         mode = "tray" if startup_launch else "foreground"
-        report = health_report(__version__, mode, True, os.environ.get("POURTASK_PHASE4_ATTEMPT_ID", ""),
-                               os.environ.get("POURTASK_PHASE4_REQUEST_ID", ""))
-        QTimer.singleShot(0, lambda: send_health(health_pipe, report))
+        report = health_report(__version__, mode, True, health_configuration.attempt_id,
+                               health_configuration.request_id)
+        health_sender = HealthSender(health_configuration, report, parent=app)
+        health_sender.start()
     return app.exec()
