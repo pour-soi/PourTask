@@ -58,8 +58,7 @@ ApplicationWindow {
     }
     function openView(name) {
         appViewModel.clearMessage()
-        appViewModel.setView(name)
-        searchField.text = ""
+        if (appViewModel.setView(name)) searchField.text = ""
     }
     function startNewTask() {
         if (appViewModel.currentView === "settings")
@@ -137,6 +136,40 @@ ApplicationWindow {
             toastTimer.interval = appViewModel.message.indexOf("Undo") >= 0 ? 6500 : 3000
             toastTimer.restart()
         }
+        function onUnsavedChangesRequested() {
+            if (appViewModel.unsavedPromptVisible && !unsavedDialog.opened)
+                unsavedDialog.open()
+            else if (!appViewModel.unsavedPromptVisible && unsavedDialog.opened)
+                unsavedDialog.close()
+        }
+    }
+
+    Dialog {
+        id: unsavedDialog
+        objectName: "unsavedChangesDialog"
+        modal: true
+        anchors.centerIn: parent
+        title: "Unsaved changes"
+        closePolicy: Popup.NoAutoClose
+        ColumnLayout {
+            Text {
+                text: "You have unsaved changes to this " + appViewModel.unsavedPromptContext
+                      + ".\nSave them before leaving?"
+                color: Theme.text
+            }
+            Text {
+                visible: appViewModel.draft.saveState === "failed"
+                text: "The task could not be saved. Cancel and review the highlighted fields."
+                color: Theme.danger
+                wrapMode: Text.Wrap
+            }
+            RowLayout {
+                PrimaryButton { text: "Save"; onClicked: { var result = appViewModel.resolveUnsavedChanges("save"); if (result.ok) unsavedDialog.close() } }
+                DangerButton { text: "Discard"; onClicked: { appViewModel.resolveUnsavedChanges("discard"); unsavedDialog.close() } }
+                PourButton { text: "Cancel"; onClicked: { appViewModel.resolveUnsavedChanges("cancel"); unsavedDialog.close() } }
+            }
+        }
+        onOpened: forceActiveFocus()
     }
 
     Timer {

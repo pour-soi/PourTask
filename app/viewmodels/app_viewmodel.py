@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date
 
 from PySide6.QtCore import QAbstractListModel, QByteArray, QModelIndex, Property, Qt, Signal, Slot
@@ -19,6 +19,24 @@ from app.services import task_queries
 from app.services.undo_service import UndoService
 from app.services.backup_service import BackupService, BackupError
 from PySide6.QtWidgets import QFileDialog
+
+
+@dataclass
+class EditDraft:
+    task_id: str | None
+    creating: bool
+    title: str
+    notes: str
+    scheduled: str
+    due: str
+    assigned: str
+    assigned_manual: bool
+    original: tuple[str, str, str, str, str]
+    save_state: str = "idle"
+
+    @property
+    def dirty(self) -> bool:
+        return (self.title, self.notes, self.scheduled, self.due, self.assigned) != self.original
 
 
 class TaskListModel(QAbstractListModel):
@@ -64,6 +82,9 @@ class AppViewModel(QAbstractListModel):
     monthChanged = Signal()
     messageChanged = Signal()
     detailChanged = Signal()
+    draftChanged = Signal()
+    unsavedChangesRequested = Signal()
+    exitApproved = Signal()
 
     def __init__(self, repository: TaskRepository):
         super().__init__()
@@ -79,6 +100,9 @@ class AppViewModel(QAbstractListModel):
         self._creating = False
         self._selection_before_create: Task | None = None
         self._new_defaults: dict[str, object] = {}
+        self._draft: EditDraft | None = None
+        self._pending_action: tuple[str, str | None] | None = None
+        self._update_save_failed = False
         self.refresh()
 
     @Property("QVariant", constant=True)
@@ -104,26 +128,72 @@ class AppViewModel(QAbstractListModel):
             "scheduledDate": format_us_date(task.scheduled_date),
             "dueDate": format_us_date(task.due_date),
             "assignedMonth": format_assigned_month(task.assigned_month), "completed": task.completed}
+    @Property("QVariantMap", notify=draftChanged)
+    def draft(self):
+        value = self._draft
+        return {} if value is None else {
+            "taskId": value.task_id or "", "creating": value.creating,
+            "title": value.title, "notes": value.notes,
+            "scheduledDate": value.scheduled, "dueDate": value.due,
+            "assignedMonth": value.assigned, "assignedMonthManual": value.assigned_manual,
+            "dirty": value.dirty, "saveState": value.save_state,
+        }
+    @Property(bool, notify=draftChanged)
+    def hasUnsavedChanges(self): return bool(self._draft and self._draft.dirty)
+    @Property(bool, notify=unsavedChangesRequested)
+    def unsavedPromptVisible(self): return self._pending_action is not None
+    @Property(str, notify=unsavedChangesRequested)
+    def unsavedPromptContext(self):
+        if not self._pending_action: return ""
+        return "new task" if self._draft and self._draft.creating else "task"
 
     def _tell(self, message): self._message = message; self.messageChanged.emit()
 
-    @Slot(str)
-    def setView(self, view):
+    @staticmethod
+    def _draft_for_task(task: Task) -> EditDraft:
+        fields = (task.title, task.notes, format_us_date(task.scheduled_date),
+                  format_us_date(task.due_date), format_assigned_month(task.assigned_month))
+        return EditDraft(task.id, False, *fields, True, fields)
+
+    def _request_or_run(self, action: tuple[str, str | None]) -> bool:
+        if self.hasUnsavedChanges:
+            if self._pending_action is None:
+                self._pending_action = action
+                self.unsavedChangesRequested.emit()
+            return False
+        self._run_action(action)
+        return True
+
+    def _run_action(self, action: tuple[str, str | None]) -> None:
+        kind, value = action
+        if kind == "view": self._set_view(value or "today")
+        elif kind == "search": self._set_search(value or "")
+        elif kind == "detail": self._open_detail(value or "")
+        elif kind == "close": self._close_detail()
+        elif kind == "new": self._begin_new_task()
+        elif kind == "exit": self.exitApproved.emit()
+
+    def _set_view(self, view):
         self._view, self._query = view, ""
-        self._creating = False
-        self._selected = None
-        self.detailChanged.emit(); self.viewChanged.emit(); self.refresh()
+        self._creating = False; self._selected = None; self._draft = None
+        self.detailChanged.emit(); self.draftChanged.emit(); self.viewChanged.emit(); self.refresh()
 
-    @Slot(str)
+    @Slot(str, result=bool)
+    def setView(self, view):
+        return self._request_or_run(("view", view))
+
+    def _set_search(self, query):
+        if self._view != "search": self._view_before_search = self._view
+        self._creating = False; self._selected = None; self._draft = None
+        self._query = query; self._view = "search"
+        self.detailChanged.emit(); self.draftChanged.emit(); self.viewChanged.emit(); self.refresh()
+
+    @Slot(str, result=bool)
     def setSearch(self, query):
-        if self._view != "search":
-            self._view_before_search = self._view
-            self._creating = False
-            self._selected = None; self.detailChanged.emit()
-        self._query = query; self._view = "search"; self.viewChanged.emit(); self.refresh()
+        return self._request_or_run(("search", query))
 
-    @Slot()
-    def clearSearch(self): self.setView(self._view_before_search)
+    @Slot(result=bool)
+    def clearSearch(self): return self.setView(self._view_before_search)
 
     @Slot(int)
     def changeMonth(self, offset):
@@ -155,8 +225,7 @@ class AppViewModel(QAbstractListModel):
             self._tell(str(exc)); return False
         self._tell("Task created in Today."); self.refresh(); return True
 
-    @Slot()
-    def beginNewTask(self):
+    def _begin_new_task(self):
         self._selection_before_create = self._selected
         today = date.today()
         scheduled = today if self._view == "today" else None
@@ -169,7 +238,13 @@ class AppViewModel(QAbstractListModel):
             "assignedMonthManual": False,
         }
         self._creating = True
-        self.detailChanged.emit()
+        self._draft = EditDraft(None, True, "", "", self._new_defaults["scheduledDate"], "",
+                                self._new_defaults["assignedMonth"], False,
+                                ("", "", self._new_defaults["scheduledDate"], "", self._new_defaults["assignedMonth"]))
+        self.detailChanged.emit(); self.draftChanged.emit()
+
+    @Slot(result=bool)
+    def beginNewTask(self): return self._request_or_run(("new", None))
 
     @Slot()
     def cancelNewTask(self):
@@ -178,7 +253,49 @@ class AppViewModel(QAbstractListModel):
         self._creating = False
         self._selected = self._selection_before_create
         self._selection_before_create = None
-        self.detailChanged.emit()
+        self._draft = self._draft_for_task(self._selected) if self._selected else None
+        self.detailChanged.emit(); self.draftChanged.emit()
+
+    @Slot(str, str, str, str, str, bool)
+    def updateDraft(self, title, notes, scheduled, due, assigned, assigned_manual):
+        if not self._draft: return
+        self._update_save_failed = False
+        self._draft.save_state = "idle"
+        self._draft.title, self._draft.notes = title, notes
+        self._draft.scheduled, self._draft.due, self._draft.assigned = scheduled, due, assigned
+        self._draft.assigned_manual = assigned_manual
+        self.draftChanged.emit()
+
+    @Slot(str, result="QVariantMap")
+    def resolveUnsavedChanges(self, choice):
+        if self._pending_action is None: return {"ok": True}
+        if choice == "cancel":
+            self._pending_action = None; self.unsavedChangesRequested.emit()
+            return {"ok": True}
+        if choice == "save":
+            result = self.saveDraft()
+            if not result.get("ok"):
+                self._update_save_failed = self._pending_action[0] == "update"
+                return result
+        elif choice == "discard":
+            self._draft = None; self.draftChanged.emit()
+        else:
+            return {"ok": False, "errors": {}}
+        action, self._pending_action = self._pending_action, None
+        self.unsavedChangesRequested.emit(); self._run_action(action)
+        return {"ok": True}
+
+    @Slot()
+    def requestExit(self): self._request_or_run(("exit", None))
+
+    @Slot()
+    def requestUpdateResolution(self):
+        if self.hasUnsavedChanges and self._pending_action is None:
+            self._pending_action = ("update", None); self.unsavedChangesRequested.emit()
+
+    def updateShutdownState(self):
+        if self._update_save_failed: return "save-failed"
+        return "dirty" if self.hasUnsavedChanges else "ready"
 
     @Slot(str, result="QVariantMap")
     def normalizeDate(self, value):
@@ -265,9 +382,12 @@ class AppViewModel(QAbstractListModel):
         self._creating = False
         self._selection_before_create = None
         self._selected = task
+        fields = (task.title, task.notes, format_us_date(task.scheduled_date),
+                  format_us_date(task.due_date), format_assigned_month(task.assigned_month))
+        self._draft = EditDraft(task.id, False, *fields, True, fields)
         destination = self._follow_task(task)
         self.refresh()
-        self.detailChanged.emit()
+        self.detailChanged.emit(); self.draftChanged.emit()
         self._tell(f"Task created in {destination}.")
         return {"ok": True, "taskId": task.id, "destination": destination}
 
@@ -287,7 +407,7 @@ class AppViewModel(QAbstractListModel):
     def deleteTask(self, task_id):
         old = self.repository.delete(task_id)
         self.undo_service.offer("Task deleted", lambda: (self.repository.restore_record(old), self.refresh()))
-        self.closeDetail(); self._tell("Task deleted — Undo"); self.refresh()
+        self._close_detail(); self._tell("Task deleted — Undo"); self.refresh()
 
     @Slot()
     def undo(self):
@@ -298,10 +418,22 @@ class AppViewModel(QAbstractListModel):
         if self._message:
             self._tell("")
 
-    @Slot(str)
-    def openDetail(self, task_id): self._selected = self.repository.get(task_id); self.detailChanged.emit()
-    @Slot()
-    def closeDetail(self): self._selected = None; self.detailChanged.emit()
+    def _open_detail(self, task_id):
+        self._selected = self.repository.get(task_id); self._creating = False
+        self._draft = self._draft_for_task(self._selected)
+        self.detailChanged.emit(); self.draftChanged.emit()
+
+    @Slot(str, result=bool)
+    def openDetail(self, task_id):
+        if self._draft and self._draft.task_id == task_id and not self._draft.creating: return True
+        return self._request_or_run(("detail", task_id))
+
+    def _close_detail(self):
+        self._selected = None; self._creating = False; self._draft = None
+        self.detailChanged.emit(); self.draftChanged.emit()
+
+    @Slot(result=bool)
+    def closeDetail(self): return self._request_or_run(("close", None))
 
     @Slot(str, str, str, str, str, result="QVariantMap")
     def saveDetail(self, title, notes, scheduled, due, assigned):
@@ -317,11 +449,24 @@ class AppViewModel(QAbstractListModel):
             assigned_month=values["assigned"],
         )
         self._selected = saved
+        self._draft = self._draft_for_task(saved)
         destination = self._follow_task(saved)
-        self.detailChanged.emit()
+        self.detailChanged.emit(); self.draftChanged.emit()
         self._tell(warning or f"Task saved in {destination}.")
         self.refresh()
         return {"ok": True, "taskId": saved.id, "destination": destination}
+
+    @Slot(result="QVariantMap")
+    def saveDraft(self):
+        draft = self._draft
+        if not draft: return {"ok": True}
+        draft.save_state = "saving"; self.draftChanged.emit()
+        result = (self.createTask(draft.title, draft.notes, draft.scheduled, draft.due, draft.assigned)
+                  if draft.creating else
+                  self.saveDetail(draft.title, draft.notes, draft.scheduled, draft.due, draft.assigned))
+        if not result.get("ok") and self._draft:
+            self._draft.save_state = "failed"; self.draftChanged.emit()
+        return result
 
     @Slot()
     def refresh(self):

@@ -276,6 +276,33 @@ def test_editor_auto_collapse_preserves_unsaved_content(repository, tmp_path):
     del engine
 
 
+def test_editor_navigation_opens_one_prompt_and_cancel_preserves_draft(repository, tmp_path):
+    application, engine, view_model, settings, window, widget = _load_main_and_widget(
+        repository, tmp_path
+    )
+    window.findChild(QObject, "newTaskButton").clicked.emit()
+    title = window.findChild(QObject, "taskTitleField")
+    title.setProperty("text", "Keep this navigation draft")
+    application.processEvents()
+
+    assert view_model.hasUnsavedChanges
+    assert not view_model.setView("settings")
+    assert not view_model.setView("inbox")
+    application.processEvents()
+    prompt = window.findChild(QObject, "unsavedChangesDialog")
+    assert prompt and prompt.property("opened")
+    assert view_model.currentView == "today"
+
+    view_model.resolveUnsavedChanges("cancel")
+    application.processEvents()
+    assert not prompt.property("opened")
+    assert view_model.draft["title"] == "Keep this navigation draft"
+
+    view_model.setView("settings")
+    view_model.resolveUnsavedChanges("discard")
+    widget.close(); window.close(); application.processEvents(); del engine
+
+
 def test_widget_empty_multiple_and_long_titles_render_compactly(repository, tmp_path):
     application, engine, view_model, settings, window, widget = _load_main_and_widget(
         repository, tmp_path

@@ -182,6 +182,9 @@ def test_shutdown_saves_before_ready_and_fails_safely():
     calls = []; assert prepare_shutdown({}, pending_edits=False, save_state=lambda: calls.append("saved") or True)["status"] == "ready"; assert calls == ["saved"]
     assert prepare_shutdown({}, pending_edits=False, save_state=lambda: False)["status"] == "failed"
     assert prepare_shutdown({}, pending_edits=True, save_state=lambda: True)["status"] == "requires-user-action"
+    assert prepare_shutdown({}, pending_edits="save-failed", save_state=lambda: True) == {
+        "status": "failed", "errorCode": "task-save-failed"
+    }
 
 
 def test_health_report_contains_only_structural_data():

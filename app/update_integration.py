@@ -147,8 +147,10 @@ class ShutdownRequestValidator:
         return request
 
 
-def prepare_shutdown(request: dict, *, pending_edits: bool, save_state) -> dict:
-    if pending_edits: return {"status": "requires-user-action"}
+def prepare_shutdown(request: dict, *, pending_edits: bool | str, save_state) -> dict:
+    if pending_edits == "save-failed":
+        return {"status": "failed", "errorCode": "task-save-failed"}
+    if pending_edits is True or pending_edits == "dirty": return {"status": "requires-user-action"}
     try: saved = bool(save_state())
     except OSError: saved = False
     return {"status": "ready" if saved else "failed",
@@ -185,9 +187,11 @@ def _frame(value: dict) -> bytes:
 
 
 class UpdatePipeServer(QObject):
-    def __init__(self, pipe_name: str, *, pending_edits, save_state, quit_app, parent=None):
+    def __init__(self, pipe_name: str, *, pending_edits, save_state, quit_app,
+                 requires_user_action=lambda: None, parent=None):
         super().__init__(parent); self.validator = ShutdownRequestValidator(); self.pending_edits = pending_edits
-        self.save_state, self.quit_app, self.buffers = save_state, quit_app, {}
+        self.save_state, self.quit_app = save_state, quit_app
+        self.requires_user_action, self.buffers = requires_user_action, {}
         self.server = QLocalServer(self); QLocalServer.removeServer(pipe_name)
         if not self.server.listen(pipe_name): raise RuntimeError("Phase 4 control pipe could not be opened.")
         self.server.newConnection.connect(self._accept)
@@ -207,10 +211,11 @@ class UpdatePipeServer(QObject):
         if len(buffer) < length + 4: return
         try:
             request = self.validator.validate(bytes(buffer[4:4 + length]))
-            response = prepare_shutdown(request, pending_edits=bool(self.pending_edits()), save_state=self.save_state)
+            response = prepare_shutdown(request, pending_edits=self.pending_edits(), save_state=self.save_state)
         except ValueError as exc:
             response = {"status": "failed", "errorCode": str(exc)}
         self._reply(socket, response)
+        if response["status"] == "requires-user-action": QTimer.singleShot(0, self.requires_user_action)
         if response["status"] == "ready": QTimer.singleShot(0, self.quit_app)
 
     @staticmethod

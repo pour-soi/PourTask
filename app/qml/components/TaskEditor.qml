@@ -11,6 +11,7 @@ Item {
     property bool creating: false
     property bool completed: !creating && Boolean(task.completed)
     property bool assignedMonthManual: !creating
+    property bool loading: false
     function layoutStateForWidth(value) {
         return value >= 460 ? 0 : (value >= 360 ? 1 : (value >= 280 ? 2 : 3))
     }
@@ -19,8 +20,9 @@ Item {
     readonly property bool popupOpen: scheduledField.popupOpen || dueField.popupOpen || monthField.popupOpen
     signal cancelRequested()
 
-    function source() { return creating ? viewModel.newTaskDefaults : task }
+    function source() { return viewModel.draft }
     function load() {
+        loading = true
         var value = source() || ({})
         titleField.text = value.title || ""
         notesField.text = value.notes || ""
@@ -29,7 +31,13 @@ Item {
         monthField.text = value.assignedMonth || ""
         assignedMonthManual = creating ? Boolean(value.assignedMonthManual) : true
         clearErrors()
+        loading = false
         if (creating) Qt.callLater(titleField.forceActiveFocus)
+    }
+    function pushDraft() {
+        if (!loading)
+            viewModel.updateDraft(titleField.text, notesField.text, scheduledField.text,
+                                  dueField.text, monthField.text, assignedMonthManual)
     }
     function clearErrors() {
         titleError.text = ""; scheduledField.errorText = ""
@@ -54,9 +62,8 @@ Item {
         scheduledField.normalize()
         dueField.normalize()
         monthField.normalize()
-        var result = creating
-                ? viewModel.createTask(titleField.text, notesField.text, scheduledField.text, dueField.text, monthField.text)
-                : viewModel.saveDetail(titleField.text, notesField.text, scheduledField.text, dueField.text, monthField.text)
+        pushDraft()
+        var result = viewModel.saveDraft()
         if (!result.ok) applyErrors(result.errors || ({}))
     }
     function updateAutomaticMonth() {
@@ -86,6 +93,7 @@ Item {
                 id: titleField; objectName: "taskTitleField"; Layout.fillWidth: true
                 readOnly: editor.completed; error: titleError.text.length > 0
                 placeholderText: editor.creating ? "What needs to be done?" : "Task title"
+                onTextChanged: editor.pushDraft()
                 onTextEdited: titleError.text = ""
             }
             FieldError { id: titleError }
@@ -99,6 +107,7 @@ Item {
                 Layout.minimumHeight: 88
                 readOnly: editor.completed
                 placeholderText: "Add notes, URLs, Chinese or English text"
+                onTextChanged: editor.pushDraft()
             }
             Text { text: "SCHEDULE DATE"; color: Theme.dim; font.pixelSize: Theme.labelText; font.weight: Font.DemiBold }
             PourDateField {
@@ -108,6 +117,7 @@ Item {
                 readOnly: editor.completed; placeholderText: "Schedule Date · MM/DD/YYYY"
                 onPopupOpening: { dueField.closePopup(); monthField.closePopup() }
                 onNormalized: editor.updateAutomaticMonth()
+                onTextChanged: editor.pushDraft()
             }
             Text { text: "DUE DATE"; color: Theme.dim; font.pixelSize: Theme.labelText; font.weight: Font.DemiBold }
             PourDateField {
@@ -117,6 +127,7 @@ Item {
                 readOnly: editor.completed; placeholderText: "Due Date · MM/DD/YYYY"
                 onPopupOpening: { scheduledField.closePopup(); monthField.closePopup() }
                 onNormalized: editor.updateAutomaticMonth()
+                onTextChanged: editor.pushDraft()
             }
             Text { text: "ASSIGNED MONTH"; color: Theme.dim; font.pixelSize: Theme.labelText; font.weight: Font.DemiBold }
             PourMonthField {
@@ -126,6 +137,7 @@ Item {
                 readOnly: editor.completed; placeholderText: "Assigned Month · MM/YYYY"
                 onPopupOpening: { scheduledField.closePopup(); dueField.closePopup() }
                 onManuallyEdited: editor.assignedMonthManual = true
+                onTextChanged: editor.pushDraft()
             }
             GridLayout {
                 objectName: "taskActionRow"

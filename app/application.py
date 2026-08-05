@@ -84,7 +84,8 @@ def run() -> int:
     settings_view_model = SettingsViewModel(
         settings, Path(sys.executable), StartupService(Path(sys.executable))
     )
-    settings_view_model.exitRequested.connect(exit_controller.request_exit)
+    settings_view_model.exitRequested.connect(view_model.requestExit)
+    view_model.exitApproved.connect(exit_controller.request_exit)
     engine.rootContext().setContextProperty("appViewModel", view_model)
     engine.rootContext().setContextProperty("settingsViewModel", settings_view_model)
     engine.rootContext().setContextProperty("strings", STRINGS)
@@ -225,7 +226,7 @@ def run() -> int:
     instance_guard.activateRequested.connect(open_window)
 
     tray = create_tray(
-        app, icon, open_window, quick_add, exit_controller.request_exit,
+        app, icon, open_window, quick_add, view_model.requestExit,
         widget_controller=widget_controller if widget else None,
     )
     if tray:
@@ -281,9 +282,10 @@ def run() -> int:
     control_pipe = os.environ.get("POURTASK_PHASE4_CONTROL_PIPE") or (PHASE4_PROTOCOL_ID if test_mode() else None)
     if control_pipe:
         control_server = UpdatePipeServer(
-            control_pipe, pending_edits=lambda: view_model.detailOpen,
+            control_pipe, pending_edits=view_model.updateShutdownState,
             save_state=lambda: (persist_geometry() is None),
-            quit_app=exit_controller.request_exit, parent=app,
+            quit_app=exit_controller.request_exit,
+            requires_user_action=lambda: (open_window(), view_model.requestUpdateResolution()), parent=app,
         )
         exit_controller.add_cleanup(control_server.close)
     health_configuration = HealthConfiguration.from_environment() if test_mode() else None

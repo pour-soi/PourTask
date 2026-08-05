@@ -86,10 +86,12 @@ def _qml_window(repository, tmp_path, close_behavior):
     application = QApplication.instance() or QApplication([])
     settings = Settings(tmp_path / "settings.json"); settings.values["close_behavior"] = close_behavior; settings.save()
     view_model = SettingsViewModel(settings, tmp_path / "PourTask.exe")
-    requested = []; view_model.exitRequested.connect(lambda: requested.append(True))
+    requested = []
     engine = QQmlApplicationEngine(); warnings = []
     engine.warnings.connect(lambda items: warnings.extend(item.toString() for item in items))
     engine._app_view_model = AppViewModel(repository); engine._settings_view_model = view_model
+    view_model.exitRequested.connect(engine._app_view_model.requestExit)
+    engine._app_view_model.exitApproved.connect(lambda: requested.append(True))
     engine.rootContext().setContextProperty("appViewModel", engine._app_view_model)
     engine.rootContext().setContextProperty("settingsViewModel", view_model)
     engine.rootContext().setContextProperty("strings", STRINGS)
@@ -105,8 +107,11 @@ def _qml_window(repository, tmp_path, close_behavior):
 
 def test_close_to_tray_hides_window_without_requesting_exit(repository, tmp_path):
     application, engine, window, requested, _ = _qml_window(repository, tmp_path, "tray")
+    engine._app_view_model.beginNewTask(); draft = engine._app_view_model.draft
+    engine._app_view_model.updateDraft("Tray draft", "", draft["scheduledDate"], draft["dueDate"], draft["assignedMonth"], False)
     window.close(); application.processEvents()
     assert not window.isVisible() and requested == []
+    assert engine._app_view_model.draft["title"] == "Tray draft"
     engine.deleteLater()
 
 
@@ -114,6 +119,17 @@ def test_close_behavior_exit_requests_graceful_termination(repository, tmp_path)
     application, engine, window, requested, warnings = _qml_window(repository, tmp_path, "exit")
     window.close(); application.processEvents()
     assert requested == [True], "\n".join(warnings)
+    window.hide(); engine.deleteLater()
+
+
+def test_close_behavior_exit_requires_resolution_for_dirty_draft(repository, tmp_path):
+    application, engine, window, requested, _ = _qml_window(repository, tmp_path, "exit")
+    engine._app_view_model.beginNewTask(); draft = engine._app_view_model.draft
+    engine._app_view_model.updateDraft("Exit draft", "", draft["scheduledDate"], draft["dueDate"], draft["assignedMonth"], False)
+    window.close(); application.processEvents()
+    assert requested == [] and engine._app_view_model.unsavedPromptVisible
+    engine._app_view_model.resolveUnsavedChanges("cancel")
+    assert engine._app_view_model.draft["title"] == "Exit draft"
     window.hide(); engine.deleteLater()
 
 
