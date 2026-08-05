@@ -1,20 +1,14 @@
 from pathlib import Path
-import os
-import re
+import runpy
 
 project = Path(SPECPATH).parent
-version_source = project / "VERSION"
-version = version_source.read_text(encoding="utf-8").strip()
-if os.environ.get("POURTASK_PHASE4_BUILD") == "1":
-    version = os.environ.get("POURTASK_PHASE4_VERSION", "")
-    version_source = project / "build" / "phase4" / "VERSION"
-    version_source.parent.mkdir(parents=True, exist_ok=True)
-    version_source.write_text(version, encoding="utf-8")
-match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?", version)
-if not match:
-    raise ValueError(f"Unsupported PourTask version: {version}")
-major, minor, patch, prerelease = (int(value or 0) for value in match.groups())
-version_tuple = (major, minor, patch, prerelease)
+resolver = runpy.run_path(str(project / "scripts" / "build_version.py"))
+resolved = resolver["resolve_build_version"](project)
+version_source = resolver["bundled_version_source"](project, resolved)
+version = resolved.semver
+version_tuple = resolved.version_tuple
+print(f"BUILD_SEMVER={resolved.semver}")
+print(f"BUILD_NUMERIC_VERSION={resolved.numeric}")
 version_info = project / "build" / "PourTask-version-info.txt"
 version_info.parent.mkdir(parents=True, exist_ok=True)
 version_info.write_text(
