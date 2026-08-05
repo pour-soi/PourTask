@@ -20,6 +20,7 @@ from app.strings import STRINGS
 from app.viewmodels import AppViewModel
 from app.viewmodels.settings_viewmodel import SettingsViewModel
 from app.platform.desktop_widget import DesktopWidgetController
+from app.platform.graceful_exit import GracefulExitController
 from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupService
 from app.platform.tray import create_tray
@@ -57,6 +58,7 @@ def _set_windows_app_id() -> None:
 def run() -> int:
     _set_windows_app_id()
     app = QApplication(sys.argv)
+    exit_controller = GracefulExitController(app)
     app.setApplicationName("PourTask"); app.setApplicationVersion(__version__); app.setOrganizationName("Pour")
     icon_path = _resource_path("assets/icons/PourTask.ico")
     icon = QIcon(str(icon_path))
@@ -64,7 +66,8 @@ def run() -> int:
         logging.error("Application icon could not be loaded from %s", icon_path)
     app.setWindowIcon(icon)
     startup_launch = "--startup" in sys.argv or "--pourupgrade-tray" in sys.argv
-    instance_guard = SingleInstanceGuard()
+    isolated_instance = os.environ.get("POURTASK_PHASE4_SINGLE_INSTANCE") if phase4_test_mode() else None
+    instance_guard = SingleInstanceGuard(isolated_instance)
     if not instance_guard.acquire(startup_launch):
         return 0
     paths = AppPaths.default(); paths.ensure(); configure_logging(paths.logs)
@@ -81,6 +84,7 @@ def run() -> int:
     settings_view_model = SettingsViewModel(
         settings, Path(sys.executable), StartupService(Path(sys.executable))
     )
+    settings_view_model.exitRequested.connect(exit_controller.request_exit)
     engine.rootContext().setContextProperty("appViewModel", view_model)
     engine.rootContext().setContextProperty("settingsViewModel", settings_view_model)
     engine.rootContext().setContextProperty("strings", STRINGS)
@@ -221,7 +225,7 @@ def run() -> int:
     instance_guard.activateRequested.connect(open_window)
 
     tray = create_tray(
-        app, icon, open_window, quick_add, app.quit,
+        app, icon, open_window, quick_add, exit_controller.request_exit,
         widget_controller=widget_controller if widget else None,
     )
     if tray:
@@ -268,14 +272,20 @@ def run() -> int:
                 "width": widget.width(), "height": widget.height(),
             }
         settings.save()
-    app.aboutToQuit.connect(persist_geometry)
+    exit_controller.add_cleanup(persist_geometry)
+    exit_controller.add_cleanup(timer.stop)
+    exit_controller.add_cleanup(instance_guard.close)
+    if tray:
+        exit_controller.add_cleanup(tray.hide)
     control_server = None
     control_pipe = os.environ.get("POURTASK_PHASE4_CONTROL_PIPE") or (PHASE4_PROTOCOL_ID if test_mode() else None)
     if control_pipe:
         control_server = UpdatePipeServer(
             control_pipe, pending_edits=lambda: view_model.detailOpen,
-            save_state=lambda: (persist_geometry() is None), quit_app=app.quit, parent=app,
+            save_state=lambda: (persist_geometry() is None),
+            quit_app=exit_controller.request_exit, parent=app,
         )
+        exit_controller.add_cleanup(control_server.close)
     health_configuration = HealthConfiguration.from_environment() if test_mode() else None
     health_sender = None
     if health_configuration:
@@ -284,4 +294,5 @@ def run() -> int:
                                health_configuration.request_id)
         health_sender = HealthSender(health_configuration, report, parent=app)
         health_sender.start()
+    app.aboutToQuit.connect(exit_controller.cleanup)
     return app.exec()

@@ -116,6 +116,9 @@ ApplicationWindow {
         if (settingsViewModel.minimizeToTray && trayAvailable) {
             close.accepted = false
             root.hide()
+        } else {
+            close.accepted = false
+            settingsViewModel.requestExit()
         }
     }
 

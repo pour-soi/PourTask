@@ -58,3 +58,13 @@ class SingleInstanceGuard(QObject):
     def _forget(self, socket) -> None:
         if socket in self._connections:
             self._connections.remove(socket)
+
+    def close(self) -> None:
+        for socket in list(self._connections):
+            socket.abort()
+        self._connections.clear()
+        if self._client_socket is not None:
+            self._client_socket.abort()
+            self._client_socket = None
+        self.server.close()
+        QLocalServer.removeServer(self.name)

@@ -217,6 +217,15 @@ class UpdatePipeServer(QObject):
     def _reply(socket, response):
         socket.write(_frame(response)); socket.flush(); socket.waitForBytesWritten(250); socket.disconnectFromServer()
 
+    def close(self):
+        for socket in list(self.buffers):
+            socket.abort()
+        self.buffers.clear()
+        name = self.server.serverName()
+        self.server.close()
+        if name:
+            QLocalServer.removeServer(name)
+
 
 def send_health(pipe_name: str, report: dict) -> bool:
     socket = QLocalSocket(); socket.connectToServer(pipe_name)

@@ -12,6 +12,7 @@ class SettingsViewModel(QObject):
     showWidgetRequested = Signal()
     resetWidgetRequested = Signal()
     updateStatusChanged = Signal()
+    exitRequested = Signal()
 
     def __init__(self, settings: Settings, executable: Path, startup_service=None, updater_launcher=None):
         super().__init__()
@@ -96,6 +97,10 @@ class SettingsViewModel(QObject):
     @Slot(bool)
     def setMinimizeToTray(self, enabled):
         self.settings.values["close_behavior"] = "tray" if enabled else "exit"; self.settings.save(); self.changed.emit()
+
+    @Slot()
+    def requestExit(self):
+        self.exitRequested.emit()
 
     @Slot(bool)
     def setWidgetEnabled(self, enabled):
