@@ -12,7 +12,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
-from app.paths import phase4_local_appdata, phase4_test_mode, stage43_stable_fixture_mode
+from app.paths import AppPaths, phase4_test_mode, stage43_stable_fixture_mode
 
 PHASE4_APP_ID = "com.pour.pourtask.phase4"
 PHASE4_PROTOCOL_ID = "pourtask-phase4-v1"
@@ -104,9 +104,9 @@ class RegistrationStore:
 
 
 class UpdaterLauncher:
-    def __init__(self, executable: Path | None = None, runner=subprocess.Popen):
+    def __init__(self, executable: Path | None = None, runner=subprocess.Popen, paths: AppPaths | None = None):
         package = "PourUpgrade-Phase4" if test_mode() else "PourUpgrade"
-        base = phase4_local_appdata() if test_mode() else Path(os.environ.get("LOCALAPPDATA", ""))
+        base = (paths or AppPaths.default()).logical_local_appdata
         default = base / "Programs" / package / "PourUpgrade.exe"
         self.executable, self.runner = Path(executable or default), runner
 
@@ -169,14 +169,11 @@ def test_mode() -> bool:
     return phase4_test_mode()
 
 
-def register_test_installation(executable: Path, data_root: Path, version: str) -> Path | None:
+def register_test_installation(executable: Path, paths: AppPaths, version: str) -> Path | None:
     if not test_mode() or not (executable.parent / ".pourtask-phase4-installed").is_file():
         return None
-    registration_root = os.environ.get("POURUPGRADE_REGISTRATION_ROOT") or str(
-        phase4_local_appdata() / "PourUpgrade" / "registrations-test"
-    )
-    path = Path(registration_root).resolve() / f"{PHASE4_APP_ID}.json"
-    RegistrationStore(path).write(phase4_registration(executable, data_root, version))
+    path = paths.registration_root / f"{PHASE4_APP_ID}.json"
+    RegistrationStore(path).write(phase4_registration(executable, paths.root, version))
     return path
 
 

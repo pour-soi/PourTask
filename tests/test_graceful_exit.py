@@ -147,7 +147,7 @@ def _environment(root: Path, pipe_name: str, instance_name: str) -> dict[str, st
 
 
 def _start_real_app(tmp_path: Path, close_behavior: str, *, hidden: bool = False):
-    root = tmp_path / "fixture-data"; settings = Settings(root / "settings.json")
+    root = tmp_path / "PourTask-Phase4"; settings = Settings(root / "settings.json")
     settings.values["close_behavior"] = close_behavior; settings.values["widget_enabled"] = False; settings.save()
     pipe_name = f"pourtask-exit-{uuid4().hex}"
     instance_name = f"PourTask.Exit.{uuid4().hex}"

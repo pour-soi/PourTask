@@ -25,7 +25,7 @@ from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupService
 from app.platform.tray import create_tray
 from app.platform.window_geometry import visible_geometry
-from app.update_integration import HealthConfiguration, HealthSender, PHASE4_PROTOCOL_ID, UpdatePipeServer, health_report, register_test_installation, test_mode
+from app.update_integration import HealthConfiguration, HealthSender, PHASE4_PROTOCOL_ID, UpdatePipeServer, UpdaterLauncher, health_report, register_test_installation, test_mode
 
 
 def _screen_work_areas():
@@ -71,7 +71,7 @@ def run() -> int:
     if not instance_guard.acquire(startup_launch):
         return 0
     paths = AppPaths.default(); paths.ensure(); configure_logging(paths.logs)
-    register_test_installation(Path(sys.executable), paths.root, __version__)
+    register_test_installation(Path(sys.executable), paths, __version__)
     settings = Settings(paths.settings)
     try:
         repository = TaskRepository(Database(paths.database))
@@ -82,7 +82,7 @@ def run() -> int:
     engine = QQmlApplicationEngine()
     tray_available = QSystemTrayIcon.isSystemTrayAvailable()
     settings_view_model = SettingsViewModel(
-        settings, Path(sys.executable), StartupService(Path(sys.executable))
+        settings, Path(sys.executable), StartupService(Path(sys.executable)), UpdaterLauncher(paths=paths)
     )
     settings_view_model.exitRequested.connect(view_model.requestExit)
     view_model.exitApproved.connect(exit_controller.request_exit)

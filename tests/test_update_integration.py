@@ -11,7 +11,7 @@ import pytest
 from PySide6.QtCore import QCoreApplication, QTimer
 from PySide6.QtNetwork import QLocalServer
 
-from app.paths import AppPaths
+from app.paths import AppPaths, LocalAppDataResolver
 from app.platform.single_instance import SingleInstanceGuard
 from app.update_integration import (
     HealthConfiguration, HealthSender, MAX_MESSAGE_BYTES, PHASE4_APP_ID, PHASE4_PROTOCOL_ID, RegistrationStore,
@@ -50,6 +50,157 @@ def request(**changes):
     return json.dumps(value).encode()
 
 
+def unpackaged_resolver(logical_root: Path, environment=None, *, reparse_checker=None):
+    return LocalAppDataResolver(
+        environment=os.environ if environment is None else environment,
+        platform_name="win32",
+        known_folder=lambda: logical_root,
+        package_family=lambda: None,
+        reparse_checker=reparse_checker,
+    )
+
+
+def synthetic_paths(tmp_path: Path, registration_root: Path | None = None) -> AppPaths:
+    local = tmp_path / "logical-local"
+    return AppPaths(
+        tmp_path / "fixture-data", local, local,
+        registration_root or tmp_path / "registrations",
+    )
+
+
+def test_unpackaged_normal_environment_uses_known_folder(tmp_path):
+    logical = tmp_path / "logical"
+    resolver = unpackaged_resolver(logical, {"LOCALAPPDATA": str(logical)})
+    resolution = resolver.resolve()
+    assert resolution.storage_root == logical
+    assert resolution.observed_environment_root == logical
+
+
+def test_unpackaged_redirected_environment_still_uses_true_known_folder(tmp_path):
+    logical = tmp_path / "logical"
+    redirected = logical / "Packages" / "automation.test_123" / "LocalCache" / "Local"
+    resolution = unpackaged_resolver(logical, {"LOCALAPPDATA": str(redirected)}).resolve()
+    assert resolution.observed_environment_root == redirected
+    assert resolution.package_family is None
+    assert resolution.storage_root == logical
+
+
+def test_packaged_process_uses_only_verified_family_localcache(tmp_path):
+    logical = tmp_path / "logical"
+    family = "Pour.PourTask_123"
+    cache = logical / "Packages" / family / "LocalCache" / "Local"
+    resolver = LocalAppDataResolver(
+        environment={"LOCALAPPDATA": str(cache)}, platform_name="win32",
+        known_folder=lambda: logical, package_family=lambda: family,
+    )
+    resolution = resolver.resolve()
+    assert resolution.package_cache_root == cache
+    assert resolution.storage_root == cache
+
+
+@pytest.mark.parametrize("observed_suffix", [
+    ("Packages", "Unrelated.App_456", "LocalCache", "Local"),
+    ("Packages", "Pour.PourTask_123", "LocalCache", "Local", "Packages", "Pour.PourTask_123", "LocalCache", "Local"),
+])
+def test_packaged_process_rejects_unrelated_or_double_virtualized_path(tmp_path, observed_suffix):
+    logical = tmp_path / "logical"
+    observed = logical.joinpath(*observed_suffix)
+    resolver = LocalAppDataResolver(
+        environment={"LOCALAPPDATA": str(observed)}, platform_name="win32",
+        known_folder=lambda: logical, package_family=lambda: "Pour.PourTask_123",
+    )
+    with pytest.raises(ValueError, match="unowned-package-localcache"):
+        resolver.resolve()
+
+
+def test_fixture_override_is_explicit_canonical_and_shared(monkeypatch, tmp_path):
+    logical = tmp_path / "logical"
+    isolated = tmp_path / "isolated" / "PourTask-Phase4"
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(isolated) + os.sep)
+    paths = AppPaths.default(unpackaged_resolver(logical))
+    assert paths.root == isolated
+    assert {paths.database, paths.settings, paths.backups, paths.logs} == {
+        isolated / "data" / "pourtask.db", isolated / "settings.json",
+        isolated / "backups", isolated / "logs",
+    }
+
+
+@pytest.mark.parametrize("suffix", ["PourTask", "PourTask/child", "pOuRtAsK"])
+def test_fixture_override_cannot_target_stable_root(monkeypatch, tmp_path, suffix):
+    logical = tmp_path / "logical"
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(logical / suffix))
+    with pytest.raises(ValueError, match="fixture-root-not-owned"):
+        AppPaths.default(unpackaged_resolver(logical))
+
+
+def test_fixture_override_rejects_other_fixture_and_reparse(monkeypatch, tmp_path):
+    logical = tmp_path / "logical"
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(logical / "PourTask-Stage43-StableFixture"))
+    with pytest.raises(ValueError, match="fixture-root-not-owned"):
+        AppPaths.default(unpackaged_resolver(logical))
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(tmp_path / "junctioned"))
+    with pytest.raises(ValueError, match="fixture-reparse-root-not-owned"):
+        AppPaths.default(unpackaged_resolver(logical, reparse_checker=lambda _path: True))
+
+
+def test_fixture_override_requires_exact_fixture_identity(monkeypatch, tmp_path):
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(tmp_path / "arbitrary"))
+    with pytest.raises(ValueError, match="fixture-identity-root-not-owned"):
+        AppPaths.default(unpackaged_resolver(tmp_path / "logical"))
+
+
+@pytest.mark.parametrize("invalid", [
+    r"%LOCALAPPDATA%\PourTask-Phase4",
+    r"\\server\share\PourTask-Phase4",
+    r"\\?\C:\isolated\PourTask-Phase4",
+])
+def test_fixture_override_rejects_environment_network_and_device_aliases(monkeypatch, tmp_path, invalid):
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", invalid)
+    with pytest.raises(ValueError):
+        AppPaths.default(unpackaged_resolver(tmp_path / "logical"))
+
+
+def test_fixture_override_rejects_traversal(monkeypatch, tmp_path):
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(tmp_path) + r"\child\..\PourTask-Phase4")
+    with pytest.raises(ValueError, match="path-traversal-not-owned"):
+        AppPaths.default(unpackaged_resolver(tmp_path / "logical"))
+
+
+def test_stable_fixture_override_requires_its_own_identity(monkeypatch, tmp_path):
+    executable = tmp_path / "install" / "PourTask.exe"
+    executable.parent.mkdir(); executable.touch(); (executable.parent / ".pourtask-stage43-stable-fixture").touch()
+    monkeypatch.setattr(sys, "executable", str(executable))
+    monkeypatch.setenv("POURTASK_STAGE43_STABLE_DATA_ROOT", str(tmp_path / "PourTask-Stage43-StableFixture"))
+    paths = AppPaths.default(unpackaged_resolver(tmp_path / "logical"))
+    assert paths.root.name == "PourTask-Stage43-StableFixture"
+
+
+def test_registration_protected_roots_match_single_resolved_fixture_root(monkeypatch, tmp_path):
+    logical = tmp_path / "logical"
+    isolated = tmp_path / "isolated" / "PourTask-Phase4"
+    registrations = tmp_path / "isolated" / "registrations"
+    executable = tmp_path / "install" / "PourTask.exe"
+    executable.parent.mkdir(); executable.touch(); (executable.parent / ".pourtask-phase4-installed").touch()
+    monkeypatch.setattr(sys, "executable", str(executable))
+    monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(isolated))
+    monkeypatch.setenv("POURUPGRADE_REGISTRATION_ROOT", str(registrations))
+    paths = AppPaths.default(unpackaged_resolver(logical))
+    registration_path = register_test_installation(executable, paths, "1.2.0-beta.1")
+    registration = RegistrationStore(registration_path).read()
+    assert registration.protectedRootMappings == {
+        "database": str(paths.data.resolve()),
+        "local-data": str(paths.backups.resolve()),
+        "settings": str(paths.settings.resolve()),
+    }
+
+
 def test_registration_creation_update_repair_and_cleanup(tmp_path):
     executable = tmp_path / "install" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
     data = tmp_path / "data-root"; (data / "data").mkdir(parents=True)
@@ -65,13 +216,14 @@ def test_registration_creation_update_repair_and_cleanup(tmp_path):
 def test_development_launch_does_not_register(monkeypatch, tmp_path):
     monkeypatch.setenv("POURTASK_PHASE4_TEST", "1"); monkeypatch.setenv("POURUPGRADE_REGISTRATION_ROOT", str(tmp_path / "registrations"))
     executable = tmp_path / "dev" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
-    assert register_test_installation(executable, tmp_path / "data", "1.2.0") is None
+    assert register_test_installation(executable, synthetic_paths(tmp_path), "1.2.0") is None
 
 
 def test_installed_test_registration_is_isolated(monkeypatch, tmp_path):
     monkeypatch.setenv("POURTASK_PHASE4_TEST", "1"); monkeypatch.setenv("POURUPGRADE_REGISTRATION_ROOT", str(tmp_path / "registrations"))
     executable = tmp_path / "phase4" / "PourTask.exe"; executable.parent.mkdir(); executable.touch(); (executable.parent / ".pourtask-phase4-installed").touch()
-    path = register_test_installation(executable, tmp_path / "test-data", "1.2.0")
+    paths = synthetic_paths(tmp_path, tmp_path / "registrations")
+    path = register_test_installation(executable, paths, "1.2.0")
     assert path and PHASE4_APP_ID in path.name
     assert json.loads(path.read_text(encoding="utf-8"))["installRoot"] == str(executable.parent.resolve())
 
@@ -81,7 +233,8 @@ def test_installed_marker_enables_test_mode_without_command_line(monkeypatch, tm
     (executable.parent / ".pourtask-phase4-installed").touch(); monkeypatch.setattr("sys.executable", str(executable))
     from app.update_integration import test_mode
     assert test_mode()
-    assert AppPaths.default().root == (Path(os.environ["USERPROFILE"]) / "AppData" / "Local" / "PourTask-Phase4").resolve()
+    logical = tmp_path / "logical-local"
+    assert AppPaths.default(unpackaged_resolver(logical)).root == logical / "PourTask-Phase4"
 
 
 def test_marker_absent_uses_only_stable_root(monkeypatch, tmp_path):
@@ -91,19 +244,19 @@ def test_marker_absent_uses_only_stable_root(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "executable", str(executable)); monkeypatch.setattr(sys, "argv", [str(executable)])
     from app.update_integration import test_mode
     assert not test_mode()
-    assert AppPaths.default().root == stable_base / "PourTask"
+    assert AppPaths.default(unpackaged_resolver(stable_base)).root == stable_base / "PourTask"
 
 
 def test_stage43_stable_fixture_has_distinct_root_and_instance(monkeypatch, tmp_path):
     executable = tmp_path / "stable-fixture" / "PourTask.exe"; executable.parent.mkdir(); executable.touch()
     (executable.parent / ".pourtask-stage43-stable-fixture").touch()
-    profile = tmp_path / "profile"; monkeypatch.setenv("USERPROFILE", str(profile))
+    logical = tmp_path / "logical-local"
     monkeypatch.delenv("POURTASK_PHASE4_TEST", raising=False); monkeypatch.setattr(sys, "executable", str(executable))
     monkeypatch.setattr(sys, "argv", [str(executable), "--stage43-stable-fixture"])
-    paths = AppPaths.default()
-    assert paths.root == (profile / "AppData" / "Local" / "PourTask-Stage43-StableFixture").resolve()
+    paths = AppPaths.default(unpackaged_resolver(logical))
+    assert paths.root == logical / "PourTask-Stage43-StableFixture"
     assert SingleInstanceGuard().name == "PourTask.Stage43StableFixture.SingleInstance"
-    assert paths.root != (profile / "AppData" / "Local" / "PourTask").resolve()
+    assert paths.root != logical / "PourTask"
 
 
 def test_stage43_stable_fixture_cannot_launch_an_updater(monkeypatch):
@@ -113,10 +266,10 @@ def test_stage43_stable_fixture_cannot_launch_an_updater(monkeypatch):
 
 
 def test_phase4_command_line_centralizes_all_storage_paths(monkeypatch, tmp_path):
-    root = tmp_path / "isolated"; monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(root))
+    root = tmp_path / "PourTask-Phase4"; monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(root))
     monkeypatch.setattr(sys, "argv", ["PourTask.exe", "--pourupgrade-phase4-test", "--startup"])
     from app.update_integration import test_mode
-    paths = AppPaths.default()
+    paths = AppPaths.default(unpackaged_resolver(tmp_path / "logical-local"))
     assert test_mode() and paths.root == root.resolve()
     assert {paths.data, paths.database, paths.backups, paths.logs, paths.settings} == {
         paths.root / "data", paths.root / "data" / "pourtask.db", paths.root / "backups",
@@ -132,12 +285,14 @@ def test_stable_restart_arguments_do_not_enable_phase4(monkeypatch, tmp_path, ar
     monkeypatch.setattr(sys, "argv", [str(executable), argument])
     from app.update_integration import test_mode
     assert not test_mode()
-    assert AppPaths.default().root == stable_base / "PourTask"
+    assert AppPaths.default(unpackaged_resolver(stable_base)).root == stable_base / "PourTask"
 
 
 def test_test_paths_use_explicit_isolated_root(monkeypatch, tmp_path):
     monkeypatch.setenv("POURTASK_PHASE4_TEST", "1")
-    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(tmp_path)); assert AppPaths.default().root == tmp_path.resolve()
+    root = tmp_path / "PourTask-Phase4"
+    monkeypatch.setenv("POURTASK_PHASE4_DATA_ROOT", str(root))
+    assert AppPaths.default(unpackaged_resolver(tmp_path / "logical-local")).root == root.resolve()
 
 
 def test_updater_missing_is_safe(tmp_path):
