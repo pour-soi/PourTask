@@ -13,15 +13,16 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from PySide6.QtCore import QObject, QTimer, QUrl
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QThread, QTimer, QUrl
 from PySide6.QtGui import QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+from shiboken6 import isValid
 
 from app.platform.graceful_exit import GracefulExitController
 from app.platform.single_instance import SingleInstanceGuard
-from app.platform.tray import create_tray
+from app.platform.tray import create_tray, dispose_tray
 from app.settings import Settings
 from app.strings import STRINGS
 from app.viewmodels import AppViewModel
@@ -79,7 +80,69 @@ def test_tray_exit_uses_graceful_controller(monkeypatch):
     assert tray is not None
     exit_action = next(action for action in tray.contextMenu().actions() if action.text() == "Exit")
     exit_action.trigger(); _wait(lambda: requested == [True])
-    tray.hide()
+    dispose_tray(tray)
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
+def test_tray_rejects_core_application_without_native_crash():
+    script = """
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtGui import QIcon
+from app.platform.tray import create_tray
+application = QCoreApplication([])
+try:
+    create_tray(application, QIcon(), lambda: None, lambda: None, lambda: None)
+except RuntimeError as error:
+    assert str(error) == 'Tray creation requires the active QApplication.'
+else:
+    raise AssertionError('QCoreApplication was accepted for tray creation')
+"""
+    environment = os.environ.copy(); environment["QT_QPA_PLATFORM"] = "offscreen"
+    result = subprocess.run(
+        [sys.executable, "-X", "faulthandler", "-c", script],
+        cwd=Path(__file__).parents[1], env=environment, capture_output=True, text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_tray_creation_and_destruction_is_stable_for_100_cycles(monkeypatch):
+    application = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: True)
+    requested = []
+    for iteration in range(100):
+        destroyed = []
+        tray = create_tray(
+            application, QIcon(), lambda: None, lambda: None,
+            lambda: requested.append(iteration),
+        )
+        assert tray is not None and tray.thread() == application.thread()
+        menu = tray.contextMenu()
+        tray.destroyed.connect(lambda: destroyed.append("tray"))
+        menu.destroyed.connect(lambda: destroyed.append("menu"))
+        next(action for action in menu.actions() if action.text() == "Exit").trigger()
+        dispose_tray(tray)
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        application.processEvents()
+        assert destroyed == ["menu", "tray"]
+        assert not isValid(menu) and not isValid(tray)
+    assert requested == list(range(100))
+
+
+def test_tray_creation_is_rejected_off_gui_thread(monkeypatch):
+    application = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: True)
+    errors = []
+
+    class Worker(QThread):
+        def run(self):
+            try:
+                create_tray(application, QIcon(), lambda: None, lambda: None, lambda: None)
+            except RuntimeError as error:
+                errors.append(str(error))
+
+    worker = Worker(); worker.start(); assert worker.wait(2000)
+    assert errors == ["Tray creation must run on the GUI thread."]
 
 
 def _qml_window(repository, tmp_path, close_behavior):

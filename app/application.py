@@ -23,7 +23,7 @@ from app.platform.desktop_widget import DesktopWidgetController
 from app.platform.graceful_exit import GracefulExitController
 from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupService
-from app.platform.tray import create_tray
+from app.platform.tray import create_tray, dispose_tray
 from app.platform.window_geometry import visible_geometry
 from app.update_integration import HealthConfiguration, HealthSender, PHASE4_PROTOCOL_ID, UpdatePipeServer, UpdaterLauncher, health_report, register_test_installation, test_mode
 
@@ -277,7 +277,7 @@ def run() -> int:
     exit_controller.add_cleanup(timer.stop)
     exit_controller.add_cleanup(instance_guard.close)
     if tray:
-        exit_controller.add_cleanup(tray.hide)
+        exit_controller.add_cleanup(lambda: dispose_tray(tray))
     control_server = None
     control_pipe = os.environ.get("POURTASK_PHASE4_CONTROL_PIPE") or (PHASE4_PROTOCOL_ID if test_mode() else None)
     if control_pipe:

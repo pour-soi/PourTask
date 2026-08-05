@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QCoreApplication, QTimer
 from PySide6.QtNetwork import QLocalServer
+from PySide6.QtWidgets import QApplication
 
 from app.paths import AppPaths, LocalAppDataResolver
 from app.platform.single_instance import SingleInstanceGuard
@@ -407,7 +408,7 @@ def test_missing_health_receiver_is_nonfatal():
 
 
 def test_delayed_same_user_local_pipe_receiver_gets_one_frame():
-    app = QCoreApplication.instance() or QCoreApplication([])
+    app = QApplication.instance() or QApplication([])
     now = datetime.now(timezone.utc); suffix = "d" * 32
     environment = health_environment(now, POURTASK_PHASE4_HEALTH_PIPE="pourtask-phase4-health-" + suffix)
     config = HealthConfiguration.from_environment(environment, now=now)
