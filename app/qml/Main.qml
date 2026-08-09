@@ -111,6 +111,18 @@ ApplicationWindow {
         return appViewModel.message.replace("鈥?", "").replace("Undo", "").trim()
     }
 
+    function syncUnsavedDialog() {
+        if (!appViewModel.unsavedPromptVisible) {
+            if (unsavedDialog.opened)
+                unsavedDialog.close()
+            return
+        }
+        if (!unsavedDialog.opened)
+            unsavedDialog.open()
+        else if (root.visible)
+            unsavedDialog.forceActiveFocus()
+    }
+
     onClosing: function(close) {
         if (settingsViewModel.minimizeToTray && trayAvailable) {
             close.accepted = false
@@ -120,6 +132,8 @@ ApplicationWindow {
             settingsViewModel.requestExit()
         }
     }
+
+    onVisibleChanged: if (visible) Qt.callLater(root.syncUnsavedDialog)
 
     Connections {
         target: appViewModel
@@ -137,10 +151,7 @@ ApplicationWindow {
             toastTimer.restart()
         }
         function onUnsavedChangesRequested() {
-            if (appViewModel.unsavedPromptVisible && !unsavedDialog.opened)
-                unsavedDialog.open()
-            else if (!appViewModel.unsavedPromptVisible && unsavedDialog.opened)
-                unsavedDialog.close()
+            root.syncUnsavedDialog()
         }
     }
 

@@ -140,6 +140,8 @@ def test_new_task_editor_and_pickers_are_interactive(repository, tmp_path: Path)
     QTest.keyClick(window, Qt.Key_Return, Qt.KeyboardModifier.ControlModifier)
     application.processEvents()
     assert [task.title for task in repository.all()] == ["Keyboard task"]
+    assert not view_model.hasUnsavedChanges
+    assert view_model.updateShutdownState() == "ready"
 
     new_button.clicked.emit()
     application.processEvents()

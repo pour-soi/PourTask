@@ -89,6 +89,47 @@ def test_update_resolution_preserves_draft_until_explicit_choice(repository):
     assert not view_model.hasUnsavedChanges
 
 
+def test_update_resolution_reannounces_an_existing_pending_exit(repository):
+    view_model = AppViewModel(repository); announcements = []
+    view_model.unsavedChangesRequested.connect(lambda: announcements.append(True))
+    _dirty_new(view_model)
+    view_model.requestExit()
+    view_model.requestUpdateResolution()
+    assert len(announcements) == 2
+    assert view_model.unsavedPromptVisible
+
+
+def test_saved_row_becomes_clean_baseline_for_shutdown_retry(repository):
+    view_model = AppViewModel(repository); _dirty_new(view_model)
+    row_id = view_model.saveDraft()["taskId"]
+    assert not view_model.hasUnsavedChanges
+    assert view_model.draft["taskId"] == row_id
+    assert view_model.updateShutdownState() == "ready"
+    view_model.requestUpdateResolution()
+    assert not view_model.unsavedPromptVisible
+
+
+def test_update_save_clears_prompt_and_allows_ready_retry(repository):
+    view_model = AppViewModel(repository); _dirty_new(view_model)
+    view_model.requestUpdateResolution()
+    result = view_model.resolveUnsavedChanges("save")
+    assert result["ok"] and not view_model.hasUnsavedChanges
+    assert not view_model.unsavedPromptVisible
+    assert view_model.updateShutdownState() == "ready"
+
+
+def test_update_discard_allows_ready_retry_but_cancel_remains_dirty(repository):
+    view_model = AppViewModel(repository); _dirty_new(view_model)
+    view_model.requestUpdateResolution()
+    view_model.resolveUnsavedChanges("cancel")
+    assert view_model.hasUnsavedChanges and not view_model.unsavedPromptVisible
+    assert view_model.updateShutdownState() == "dirty"
+    view_model.requestUpdateResolution()
+    view_model.resolveUnsavedChanges("discard")
+    assert not view_model.hasUnsavedChanges
+    assert view_model.updateShutdownState() == "ready"
+
+
 def test_invalid_save_does_not_navigate_or_discard(repository):
     view_model = AppViewModel(repository); _dirty_new(view_model, title="")
     view_model.setView("settings")

@@ -191,8 +191,45 @@ def test_close_behavior_exit_requires_resolution_for_dirty_draft(repository, tmp
     engine._app_view_model.updateDraft("Exit draft", "", draft["scheduledDate"], draft["dueDate"], draft["assignedMonth"], False)
     window.close(); application.processEvents()
     assert requested == [] and engine._app_view_model.unsavedPromptVisible
+    prompt = window.findChild(QObject, "unsavedChangesDialog")
+    assert window.isVisible() and prompt.property("opened")
     engine._app_view_model.resolveUnsavedChanges("cancel")
     assert engine._app_view_model.draft["title"] == "Exit draft"
+    window.hide(); engine.deleteLater()
+
+
+def test_saved_draft_closes_without_a_stale_prompt(repository, tmp_path):
+    application, engine, window, requested, _ = _qml_window(repository, tmp_path, "exit")
+    engine._app_view_model.beginNewTask(); draft = engine._app_view_model.draft
+    engine._app_view_model.updateDraft(
+        "Saved draft", "", draft["scheduledDate"], draft["dueDate"],
+        draft["assignedMonth"], False,
+    )
+    row_id = engine._app_view_model.saveDraft()["taskId"]
+    assert engine._app_view_model.draft["taskId"] == row_id
+    window.close(); application.processEvents()
+    prompt = window.findChild(QObject, "unsavedChangesDialog")
+    assert requested == [True] and not prompt.property("opened")
+    window.hide(); engine.deleteLater()
+
+
+def test_hidden_update_prompt_is_reachable_and_can_be_recreated(repository, tmp_path):
+    application, engine, window, _, _ = _qml_window(repository, tmp_path, "tray")
+    view_model = engine._app_view_model
+    view_model.beginNewTask(); draft = view_model.draft
+    view_model.updateDraft(
+        "Hidden draft", "", draft["scheduledDate"], draft["dueDate"],
+        draft["assignedMonth"], False,
+    )
+    window.hide(); view_model.requestUpdateResolution(); application.processEvents()
+    prompt = window.findChild(QObject, "unsavedChangesDialog")
+    assert prompt.property("opened")
+    window.show(); view_model.requestUpdateResolution(); application.processEvents()
+    assert window.isVisible() and prompt.property("opened")
+    prompt.close(); application.processEvents()
+    view_model.requestUpdateResolution(); application.processEvents()
+    assert prompt.property("opened")
+    view_model.resolveUnsavedChanges("cancel")
     window.hide(); engine.deleteLater()
 
 

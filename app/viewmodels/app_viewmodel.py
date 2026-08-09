@@ -290,8 +290,11 @@ class AppViewModel(QAbstractListModel):
 
     @Slot()
     def requestUpdateResolution(self):
-        if self.hasUnsavedChanges and self._pending_action is None:
-            self._pending_action = ("update", None); self.unsavedChangesRequested.emit()
+        if not self.hasUnsavedChanges:
+            return
+        if self._pending_action is None:
+            self._pending_action = ("update", None)
+        self.unsavedChangesRequested.emit()
 
     def updateShutdownState(self):
         if self._update_save_failed: return "save-failed"
