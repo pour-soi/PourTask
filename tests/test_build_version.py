@@ -67,3 +67,32 @@ def test_phase4_build_script_binds_installer_to_resolved_version():
     assert "InstallerInfo.FileVersion.Trim() -ne $resolved.numeric" in script
     assert "InstallerInfo.ProductVersion.Trim() -ne $resolved.numeric" in script
     assert "PourTask Phase 4 Test" in script
+    assert 'UNINSTALL_DISPLAY_VERSION=$($resolved.semver)' in script
+
+
+@pytest.mark.parametrize(
+    ("version", "numeric"),
+    [("1.2.1-beta.3", "1.2.1.3"), ("1.2.1-beta.4", "1.2.1.4")],
+)
+def test_phase4_prerelease_versions_keep_semver_display_and_numeric_windows_version(tmp_path, version, numeric):
+    resolved = resolve_build_version(project(tmp_path), {
+        "POURTASK_PHASE4_BUILD": "1", "POURTASK_PHASE4_VERSION": version,
+    })
+    script = (Path(__file__).parents[1] / "packaging" / "PourTask.Phase4.iss").read_text(encoding="utf-8")
+    assert resolved.numeric == numeric
+    assert "AppVersion={#AppVersion}" in script
+    assert "VersionInfoVersion={#NumericVersion}" in script
+    assert 'ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"' in script
+    assert 'ValueName: "DisplayName"; ValueData: "PourTask Phase 4 Test {#AppVersion}"' in script
+
+
+def test_phase4_uninstall_metadata_updates_the_same_identity_only():
+    root = Path(__file__).parents[1] / "packaging"
+    beta = (root / "PourTask.Phase4.iss").read_text(encoding="utf-8")
+    stable_fixture = (root / "PourTask.Stage43StableFixture.iss").read_text(encoding="utf-8")
+    stable = (root / "PourTask.iss").read_text(encoding="utf-8")
+    assert beta.count("F927AD06-CC4D-4B73-91D4-74259DC59EF4") == 1
+    assert "Phase4UninstallKey" in beta
+    assert "CE634188-5D2E-4DC9-85EB-851060BB6092" in stable_fixture
+    assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" not in stable_fixture
+    assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" not in stable

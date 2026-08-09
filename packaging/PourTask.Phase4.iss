@@ -11,8 +11,11 @@
   #error OutputDir must be provided
 #endif
 
+#define Phase4AppId "{{F927AD06-CC4D-4B73-91D4-74259DC59EF4}"
+#define Phase4UninstallKey "Software\Microsoft\Windows\CurrentVersion\Uninstall\" + Phase4AppId + "_is1"
+
 [Setup]
-AppId={{F927AD06-CC4D-4B73-91D4-74259DC59EF4}
+AppId={#Phase4AppId}
 AppName=PourTask Phase 4 Test
 AppVersion={#AppVersion}
 AppPublisher=Pour
@@ -42,6 +45,8 @@ Source: "installed.marker"; DestDir: "{app}"; DestName: ".pourtask-phase4-instal
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "PourTask Phase4 Beta Fixture"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "{#Phase4UninstallKey}"; ValueType: string; ValueName: "DisplayName"; ValueData: "PourTask Phase 4 Test {#AppVersion}"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "{#Phase4UninstallKey}"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"; Flags: uninsdeletevalue
 
 [Icons]
 Name: "{autoprograms}\PourTask Phase 4 Test"; Filename: "{app}\PourTask.exe"; Parameters: "--pourupgrade-phase4-test --pourupgrade-tray"
