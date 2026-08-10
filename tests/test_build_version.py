@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -112,3 +114,30 @@ def test_phase4_uninstall_metadata_updates_the_same_identity_only():
     assert "CE634188-5D2E-4DC9-85EB-851060BB6092" in stable_fixture
     assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" not in stable_fixture
     assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" not in stable
+
+
+def test_physical_uninstall_regression_overrides_every_mutable_identity():
+    root = Path(__file__).parents[1]
+    script = (root / "scripts" / "test_phase4_uninstall_metadata.ps1").read_text(encoding="utf-8")
+    installer = (root / "packaging" / "PourTask.Phase4.iss").read_text(encoding="utf-8")
+    for define in ("Phase4AppId", "Phase4DefaultDir", "Phase4RegistrationPath", "Phase4StartupValueName", "Phase4ShortcutName"):
+        assert f"/D{define}=" in script
+        assert f"#ifndef {define}" in installer
+    assert "com.pour.pourtask.phase4.synthetic." in script
+    assert "Assert-IsolatedPath" in script
+    assert "live-registration-preservation-sentinel" in script
+    assert 'Type: files; Name: "{#Phase4RegistrationPath}"' in installer
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="PowerShell path containment is Windows-specific")
+def test_physical_uninstall_regression_rejects_escape_and_live_paths(tmp_path):
+    script = Path(__file__).parents[1] / "scripts" / "test_phase4_uninstall_metadata.ps1"
+    root = tmp_path / "regression"
+    inside = root / "registrations" / "synthetic.json"
+    outside = tmp_path / "outside.json"
+    live = Path.home() / "AppData" / "Local" / "PourUpgrade" / "registrations-test" / "com.pour.pourtask.phase4.json"
+    powershell = ["powershell.exe", "-NoProfile", "-File", str(script), "-IsolationValidationRoot", str(root), "-IsolationValidationPath"]
+    assert subprocess.run([*powershell, str(inside)], capture_output=True).returncode == 0
+    assert subprocess.run([*powershell, str(outside)], capture_output=True).returncode != 0
+    assert subprocess.run([*powershell, str(root / "nested" / ".." / ".." / "outside.json")], capture_output=True).returncode != 0
+    assert subprocess.run([*powershell, str(live)], capture_output=True).returncode != 0

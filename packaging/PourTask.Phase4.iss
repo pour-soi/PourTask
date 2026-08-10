@@ -17,6 +17,15 @@
 #ifndef Phase4DefaultDir
   #define Phase4DefaultDir "{localappdata}\Programs\PourTask-Phase4"
 #endif
+#ifndef Phase4RegistrationPath
+  #define Phase4RegistrationPath "{localappdata}\PourUpgrade\registrations-test\com.pour.pourtask.phase4.json"
+#endif
+#ifndef Phase4StartupValueName
+  #define Phase4StartupValueName "PourTask Phase4 Beta Fixture"
+#endif
+#ifndef Phase4ShortcutName
+  #define Phase4ShortcutName "PourTask Phase 4 Test"
+#endif
 #define Phase4UninstallKey "Software\Microsoft\Windows\CurrentVersion\Uninstall\" + Phase4AppId + "_is1"
 
 [Setup]
@@ -49,13 +58,13 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Source: "installed.marker"; DestDir: "{app}"; DestName: ".pourtask-phase4-installed"; Attribs: hidden; Flags: ignoreversion
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "PourTask Phase4 Beta Fixture"; Flags: uninsdeletevalue dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#Phase4StartupValueName}"; Flags: uninsdeletevalue dontcreatekey
 
 [Icons]
-Name: "{autoprograms}\PourTask Phase 4 Test"; Filename: "{app}\PourTask.exe"; Parameters: "--pourupgrade-phase4-test --pourupgrade-tray"
+Name: "{autoprograms}\{#Phase4ShortcutName}"; Filename: "{app}\PourTask.exe"; Parameters: "--pourupgrade-phase4-test --pourupgrade-tray"
 
 [UninstallDelete]
-Type: files; Name: "{localappdata}\PourUpgrade\registrations-test\com.pour.pourtask.phase4.json"
+Type: files; Name: "{#Phase4RegistrationPath}"
 
 [Code]
 procedure VerifyPhase4UninstallMetadata;

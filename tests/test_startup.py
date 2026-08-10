@@ -141,5 +141,6 @@ def test_stage43_fixture_installers_are_per_user_and_remove_only_fixture_startup
     assert "CE634188-5D2E-4DC9-85EB-851060BB6092" in stable_fixture
     assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" in beta_fixture
     assert 'ValueName: "PourTask Stage43 Stable Fixture"' in stable_fixture
-    assert 'ValueName: "PourTask Phase4 Beta Fixture"' in beta_fixture
+    assert '#define Phase4StartupValueName "PourTask Phase4 Beta Fixture"' in beta_fixture
+    assert 'ValueName: "{#Phase4StartupValueName}"' in beta_fixture
     assert "Root: HKLM" not in stable_fixture and "Root: HKLM" not in beta_fixture
