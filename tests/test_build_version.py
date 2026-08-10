@@ -72,7 +72,7 @@ def test_phase4_build_script_binds_installer_to_resolved_version():
 
 @pytest.mark.parametrize(
     ("version", "numeric"),
-    [("1.2.1-beta.3", "1.2.1.3"), ("1.2.1-beta.4", "1.2.1.4")],
+    [("1.2.1-beta.4", "1.2.1.4"), ("1.2.1-beta.5", "1.2.1.5")],
 )
 def test_phase4_prerelease_versions_keep_semver_display_and_numeric_windows_version(tmp_path, version, numeric):
     resolved = resolve_build_version(project(tmp_path), {
@@ -82,8 +82,23 @@ def test_phase4_prerelease_versions_keep_semver_display_and_numeric_windows_vers
     assert resolved.numeric == numeric
     assert "AppVersion={#AppVersion}" in script
     assert "VersionInfoVersion={#NumericVersion}" in script
-    assert 'ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"' in script
-    assert 'ValueName: "DisplayName"; ValueData: "PourTask Phase 4 Test {#AppVersion}"' in script
+    assert "UninstallDisplayName=PourTask Phase 4 Test {#AppVersion}" in script
+    assert "DisplayName <> 'PourTask Phase 4 Test {#AppVersion}'" in script
+    assert "DisplayVersion <> '{#AppVersion}'" in script
+
+
+def test_phase4_uninstall_metadata_is_verified_after_inno_registration():
+    script = (Path(__file__).parents[1] / "packaging" / "PourTask.Phase4.iss").read_text(encoding="utf-8")
+    registry_section = script.index("[Registry]")
+    code_section = script.index("[Code]")
+    post_install = script.index("if CurStep = ssPostInstall")
+    assert registry_section < code_section < post_install
+    assert 'ValueName: "DisplayName"' not in script[registry_section:code_section]
+    assert 'ValueName: "DisplayVersion"' not in script[registry_section:code_section]
+    assert "RegKeyExists(HKCU64, '{#Phase4UninstallKey}')" in script
+    assert script.count("RegWriteStringValue(HKCU64, '{#Phase4UninstallKey}'") == 2
+    assert script.count("RegQueryStringValue(HKCU64, '{#Phase4UninstallKey}'") == 4
+    assert "RaiseException" in script
 
 
 def test_phase4_uninstall_metadata_updates_the_same_identity_only():
@@ -92,6 +107,7 @@ def test_phase4_uninstall_metadata_updates_the_same_identity_only():
     stable_fixture = (root / "PourTask.Stage43StableFixture.iss").read_text(encoding="utf-8")
     stable = (root / "PourTask.iss").read_text(encoding="utf-8")
     assert beta.count("F927AD06-CC4D-4B73-91D4-74259DC59EF4") == 1
+    assert '#define Phase4AppId "{{F927AD06-CC4D-4B73-91D4-74259DC59EF4}"' in beta
     assert "Phase4UninstallKey" in beta
     assert "CE634188-5D2E-4DC9-85EB-851060BB6092" in stable_fixture
     assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" not in stable_fixture
