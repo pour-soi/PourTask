@@ -3,8 +3,8 @@ import sys
 from uuid import uuid4
 
 import pytest
-from PySide6.QtCore import QCoreApplication
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication
 
 from app.platform.single_instance import SingleInstanceGuard
 from app.platform.startup import StartupError, StartupService
@@ -83,7 +83,7 @@ def test_portable_build_is_explicitly_unsupported(tmp_path):
 
 
 def test_startup_invocation_does_not_activate_duplicate_instance():
-    application = QCoreApplication.instance() or QCoreApplication([])
+    application = QApplication.instance() or QApplication([])
     name = f"PourTask.Test.{uuid4()}"
     primary = SingleInstanceGuard(name)
     activated = []
