@@ -61,7 +61,11 @@ Source: "installed.marker"; DestDir: "{app}"; DestName: ".pourtask-phase4-instal
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "{#Phase4StartupValueName}"; Flags: uninsdeletevalue dontcreatekey
 
 [Icons]
+#ifdef Phase4UninstallLogPath
+Name: "{autoprograms}\{#Phase4ShortcutName}"; Filename: "{uninstallexe}"; Parameters: "/LOG=""{#Phase4UninstallLogPath}"""
+#else
 Name: "{autoprograms}\{#Phase4ShortcutName}"; Filename: "{app}\PourTask.exe"; Parameters: "--pourupgrade-phase4-test --pourupgrade-tray"
+#endif
 
 [UninstallDelete]
 Type: files; Name: "{#Phase4RegistrationPath}"

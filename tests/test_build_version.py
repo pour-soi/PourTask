@@ -120,13 +120,31 @@ def test_physical_uninstall_regression_overrides_every_mutable_identity():
     root = Path(__file__).parents[1]
     script = (root / "scripts" / "test_phase4_uninstall_metadata.ps1").read_text(encoding="utf-8")
     installer = (root / "packaging" / "PourTask.Phase4.iss").read_text(encoding="utf-8")
-    for define in ("Phase4AppId", "Phase4DefaultDir", "Phase4RegistrationPath", "Phase4StartupValueName", "Phase4ShortcutName"):
+    for define in (
+        "Phase4AppId",
+        "Phase4DefaultDir",
+        "Phase4RegistrationPath",
+        "Phase4StartupValueName",
+        "Phase4ShortcutName",
+        "Phase4UninstallLogPath",
+    ):
         assert f"/D{define}=" in script
-        assert f"#ifndef {define}" in installer
+        if define == "Phase4UninstallLogPath":
+            assert define in installer
+        else:
+            assert f"#ifndef {define}" in installer
     assert "com.pour.pourtask.phase4.synthetic." in script
     assert "Assert-IsolatedPath" in script
     assert "live-registration-preservation-sentinel" in script
     assert 'Type: files; Name: "{#Phase4RegistrationPath}"' in installer
+    assert 'Filename: "{uninstallexe}"' in installer
+    assert 'Parameters: "/LOG=""{#Phase4UninstallLogPath}"""' in installer
+    assert "Assert-UninstallEvidence" in script
+    assert "The exact ARP deletion was not reached." in script
+    assert "The uninstall log contains a registry deletion failure." in script
+    assert "GetCurrentPackageFullName" in script
+    assert "AppModelErrorNoPackage = 15700" in script
+    assert "INTERACTIVE_LAUNCH_CONTEXT=unpackaged" in script
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell path containment is Windows-specific")
