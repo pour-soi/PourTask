@@ -147,6 +147,36 @@ def test_physical_uninstall_regression_overrides_every_mutable_identity():
     assert "INTERACTIVE_LAUNCH_CONTEXT=unpackaged" in script
 
 
+def test_stable_fixture_uninstall_regression_is_isolated_and_instrumented():
+    root = Path(__file__).parents[1]
+    script = (root / "scripts" / "test_stage43_stable_uninstall_metadata.ps1").read_text(encoding="utf-8")
+    installer = (root / "packaging" / "PourTask.Stage43StableFixture.iss").read_text(encoding="utf-8")
+    for define in (
+        "Stage43AppId",
+        "Stage43AppName",
+        "Stage43DefaultDir",
+        "Stage43RegistrationPath",
+        "Stage43StartupValueName",
+        "Stage43ShortcutName",
+        "Stage43UninstallLogPath",
+    ):
+        assert f"/D{define}=" in script
+        assert define in installer
+    assert "GetPackageFullName" in script
+    assert "GetPackageFamilyName" in script
+    assert "WatchInteractive" in script
+    assert "process-inspection.txt" in script
+    assert "PROCESS_CONTEXT_ARP_VISIBLE" in script
+    assert "OUTSIDE_SCOPE_SENTINEL=unchanged" in script
+    assert "The exact Stable Fixture ARP deletion was not reached." in script
+    assert "The Stable Fixture uninstall log contains a deletion failure." in script
+    assert "CE634188-5D2E-4DC9-85EB-851060BB6092" in script
+    assert "F927AD06-CC4D-4B73-91D4-74259DC59EF4" in script
+    assert "real Stable Fixture ARP key changed" not in script
+    assert 'Filename: "{uninstallexe}"' in installer
+    assert 'Parameters: "/LOG=""{#Stage43UninstallLogPath}"""' in installer
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell path containment is Windows-specific")
 def test_physical_uninstall_regression_rejects_escape_and_live_paths(tmp_path):
     script = Path(__file__).parents[1] / "scripts" / "test_phase4_uninstall_metadata.ps1"
